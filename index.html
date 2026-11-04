@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>丑三つの宿</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;600;700&display=swap">
+<style>
+  /* 一枚の画面に全UIを重ねる。夜の和紙と墨、差し色は褪せた椿の紅だけ */
+  :root {
+    --ink: #0b0908;
+    --sumi: #15110e;
+    --washi: #e8dfcb;
+    --washi-dim: #a89c86;
+    --tsubaki: #9e2a2b;
+    --lamp: #e3a25a;
+    --font: "Shippori Mincho", "Hiragino Mincho ProN", "Yu Mincho", serif;
+    color-scheme: dark;
+  }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--ink);
+    color: var(--washi);
+    font-family: var(--font);
+    overflow: hidden;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  .layer { position: fixed; inset: 0; }
+
+  /* タイトル */
+  #title {
+    display: grid;
+    grid-template-columns: auto minmax(0, 22rem);
+    align-items: center;
+    justify-content: center;
+    gap: clamp(2rem, 7vw, 6rem);
+    padding-block: 2rem;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    background: radial-gradient(ellipse at 40% 50%, rgba(11, 9, 8, 0.55), rgba(11, 9, 8, 0.94) 70%);
+    transition: opacity 1.2s ease;
+    z-index: 5;
+  }
+  #title.out { opacity: 0; pointer-events: none; }
+  .logo {
+    writing-mode: vertical-rl;
+    font-size: clamp(2.6rem, min(9vw, 13vh), 5.6rem);
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    line-height: 1;
+    margin: 0;
+    text-shadow: 0 0 24px rgba(227, 162, 90, 0.18);
+  }
+  .logo small {
+    display: block;
+    font-size: 0.24em;
+    font-weight: 400;
+    letter-spacing: 0.5em;
+    color: var(--washi-dim);
+    margin-inline-start: 0.9em;
+  }
+  .side { display: grid; gap: 1.4rem; }
+  .act-name { display: flex; align-items: baseline; gap: 0.8rem; font-size: 1.05rem; letter-spacing: 0.2em; }
+  .act-name b {
+    font-weight: 600;
+    color: var(--washi);
+    border-bottom: 1px solid var(--tsubaki);
+    padding-bottom: 0.2rem;
+  }
+  .act-name span { color: var(--washi-dim); font-size: 0.8rem; }
+  .lead { margin: 0; line-height: 2; font-size: 0.92rem; color: var(--washi-dim); max-width: 22em; }
+  .keys { display: grid; grid-template-columns: auto 1fr; gap: 0.35rem 1rem; font-size: 0.8rem; color: var(--washi-dim); margin: 0; }
+  .keys dt { color: var(--washi); font-variant-numeric: tabular-nums; letter-spacing: 0.05em; }
+  .keys dd { margin: 0; }
+  .note { font-size: 0.78rem; color: var(--lamp); letter-spacing: 0.15em; margin: 0; }
+  #start {
+    justify-self: start;
+    font: 600 1rem var(--font);
+    letter-spacing: 0.6em;
+    padding: 0.8rem 1.4rem 0.8rem 2rem;
+    color: var(--washi);
+    background: transparent;
+    border: 1px solid var(--washi-dim);
+    cursor: pointer;
+    transition: background 0.3s, border-color 0.3s;
+  }
+  #start:hover, #start:focus-visible { background: rgba(158, 42, 43, 0.25); border-color: var(--tsubaki); outline: none; }
+  #start:disabled { opacity: 0.5; cursor: wait; }
+
+  /* 導入文 */
+  #intro { display: grid; place-items: center; background: var(--ink); z-index: 4; transition: opacity 1.5s ease; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  #intro.out { opacity: 0; pointer-events: none; }
+  #introLine { font-size: clamp(1rem, 2.6vw, 1.35rem); letter-spacing: 0.12em; line-height: 2; text-align: center; max-width: 30em; opacity: 0; transition: opacity 0.5s ease; margin: 0; }
+  #introLine.in { opacity: 1; }
+  .skip { position: absolute; bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px)); right: max(1.5rem, env(safe-area-inset-right, 0px)); font-size: 0.75rem; color: var(--washi-dim); letter-spacing: 0.15em; margin: 0; }
+
+  /* 照準と「調べる」 */
+  #reticle { position: fixed; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px; border-radius: 50%; background: rgba(232, 223, 203, 0.45); z-index: 2; transition: transform 0.2s, background 0.2s; pointer-events: none; }
+  #reticle.on { transform: scale(2.2); background: rgba(232, 223, 203, 0.85); }
+  #prompt { position: fixed; left: 50%; top: calc(50% + 28px); transform: translateX(-50%); z-index: 2; font-size: 0.85rem; letter-spacing: 0.12em; color: var(--washi); text-shadow: 0 1px 6px #000; white-space: nowrap; pointer-events: none; display: flex; gap: 0.5rem; align-items: center; }
+  #prompt kbd { font: 600 0.75rem var(--font); border: 1px solid var(--washi-dim); padding: 0.05rem 0.4rem; }
+  #promptLabel { color: var(--washi-dim); }
+
+  /* 文章 */
+  #msg {
+    position: fixed;
+    left: 50%;
+    bottom: calc(5vh + env(safe-area-inset-bottom, 0px));
+    transform: translateX(-50%);
+    width: min(44rem, calc(100% - 32px));
+    box-sizing: border-box;
+    padding: 1.2rem 1.6rem 1.4rem;
+    background: linear-gradient(rgba(21, 17, 14, 0.9), rgba(11, 9, 8, 0.94));
+    border-top: 1px solid rgba(232, 223, 203, 0.25);
+    border-bottom: 1px solid rgba(232, 223, 203, 0.1);
+    z-index: 3;
+    cursor: pointer;
+  }
+  #msgText { margin: 0; font-size: clamp(0.98rem, 2.2vw, 1.15rem); line-height: 1.9; letter-spacing: 0.08em; min-height: 1.9em; }
+  #msg .more { position: absolute; right: 1rem; bottom: 0.5rem; font-size: 0.7rem; color: var(--washi-dim); animation: blink 1.6s infinite; }
+  @keyframes blink { 50% { opacity: 0.2; } }
+
+  /* 持ち物 */
+  #inv { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); display: flex; gap: 0.6rem; z-index: 2; pointer-events: none; }
+  .item { display: grid; justify-items: center; gap: 0.25rem; font-size: 0.68rem; color: var(--washi-dim); letter-spacing: 0.1em; opacity: 0; transform: translateY(8px); transition: opacity 0.6s, transform 0.6s; }
+  .item.in { opacity: 1; transform: none; }
+  .item canvas { width: 32px; height: 48px; background: rgba(11, 9, 8, 0.6); border: 1px solid rgba(232, 223, 203, 0.18); }
+
+  /* 一時停止・終わり */
+  #pause, #end { display: grid; place-items: center; background: rgba(11, 9, 8, 0.72); z-index: 6; text-align: center; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  #pause { cursor: pointer; font-size: 1rem; letter-spacing: 0.3em; }
+  #end { background: var(--ink); }
+  .end-box { display: grid; gap: 1.2rem; justify-items: center; }
+  .end-box h2 { margin: 0; font-size: clamp(1.6rem, 5vw, 2.4rem); font-weight: 600; letter-spacing: 0.4em; }
+  .end-box p { margin: 0; color: var(--washi-dim); line-height: 2; font-size: 0.9rem; letter-spacing: 0.08em; }
+  .end-box .next { color: var(--lamp); font-size: 0.8rem; letter-spacing: 0.2em; }
+  #again { font: 600 0.9rem var(--font); letter-spacing: 0.4em; padding: 0.6rem 1.2rem 0.6rem 1.6rem; color: var(--washi); background: transparent; border: 1px solid var(--washi-dim); cursor: pointer; }
+  #again:hover, #again:focus-visible { border-color: var(--tsubaki); outline: none; }
+
+  /* タッチ */
+  #touch { position: fixed; inset: 0; pointer-events: none; z-index: 2; }
+  #stick { position: fixed; width: 96px; height: 96px; margin: -48px 0 0 -48px; border-radius: 50%; border: 1px solid rgba(232, 223, 203, 0.3); }
+  #stick div { position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; margin: -20px; border-radius: 50%; background: rgba(232, 223, 203, 0.25); }
+  #act { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(96px + env(safe-area-inset-bottom, 0px)); width: 72px; height: 72px; border-radius: 50%; border: 1px solid rgba(232, 223, 203, 0.5); background: rgba(11, 9, 8, 0.5); color: var(--washi); font: 600 0.85rem var(--font); letter-spacing: 0.1em; pointer-events: auto; }
+
+  #boot { display: grid; place-items: center; z-index: 7; background: var(--ink); color: var(--washi-dim); font-size: 0.85rem; letter-spacing: 0.3em; }
+  #boot p { margin: 0; }
+
+  @media (max-width: 640px) {
+    #title { grid-template-columns: 1fr; justify-items: center; gap: 1.6rem; align-content: center; }
+    .side { justify-items: center; text-align: center; }
+    .keys { display: none; }
+    #start { justify-self: center; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<canvas id="view"></canvas>
+
+<section id="title" class="layer">
+  <h1 class="logo">丑三つの宿<small>うしみつのやど</small></h1>
+  <div class="side">
+    <div class="act-name"><b>第一場　椿の間</b><span>午前二時</span></div>
+    <p class="lead">夜中に目を覚ますと、襖が開かない。廊下の提灯だけが、まだ灯っている。</p>
+    <dl class="keys">
+      <dt>W A S D</dt><dd>移動</dd>
+      <dt>マウス</dt><dd>視点</dd>
+      <dt>E</dt><dd>調べる・文章を送る</dd>
+      <dt>Esc</dt><dd>一時停止</dd>
+    </dl>
+    <p class="note">ヘッドホン推奨</p>
+    <button id="start" type="button" disabled>準備中</button>
+  </div>
+</section>
+
+<section id="intro" class="layer" hidden>
+  <p id="introLine"></p>
+  <p class="skip">E・クリックで送る</p>
+</section>
+
+<div id="reticle"></div>
+<div id="prompt" hidden><kbd>E</kbd>調べる<span id="promptLabel"></span></div>
+
+<div id="msg" hidden>
+  <p id="msgText"></p>
+  <span class="more">▼</span>
+</div>
+
+<div id="inv"></div>
+
+<div id="touch" hidden>
+  <div id="stick" hidden><div></div></div>
+  <button id="act" type="button">調べる</button>
+</div>
+
+<section id="pause" class="layer" hidden>クリックで再開</section>
+
+<section id="end" class="layer" hidden>
+  <div class="end-box">
+    <h2>椿の間　了</h2>
+    <p>廊下の先に、帳場の明かりがぼんやりと見える。</p>
+    <p class="next">次の場　帳場（制作中）</p>
+    <button id="again" type="button">もう一度</button>
+  </div>
+</section>
+
+<section id="boot" class="layer"><p>宿を準備しています</p></section>
+
+<script type="module">
+  // 文字を描くテクスチャがあるので、明朝体の読み込みを待ってから本編を読み込む
+  const boot = document.getElementById('boot');
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  try {
+    await Promise.race([
+      Promise.all([
+        document.fonts.load('700 30px "Shippori Mincho"', '椿宿一期会'),
+        document.fonts.load('600 24px "Shippori Mincho"', '0123456789'),
+      ]),
+      wait(2500),
+    ]);
+  } catch (_) {}
+  try {
+    await import('./src/main.js');
+    boot.hidden = true;
+  } catch (e) {
+    boot.firstElementChild.textContent = '読み込みに失敗しました。再読み込みしてください。';
+    console.error(e);
+  }
+  document.getElementById('intro').addEventListener('click', () => window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyE' })));
+</script>
+</body>
+</html>
