@@ -31,7 +31,7 @@ export function buildKikyo(ctx) {
   const DX = 9.35, DZ = K.z0 + 0.25;
   fuzukue(DX, DZ);
   box(0.1, 0.02, 0.16, std({ color: 0x1a1a1c, roughness: 0.25 }), DX + 0.22, 0.325, DZ);
-  const card = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.004, 0.128), cardMaterials('kikyo'));
+  const card = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.004, 0.16), cardMaterials('kikyo'));
   card.position.set(DX - 0.1, 0.318, DZ + 0.02);
   card.rotation.y = -0.25;
   card.castShadow = true;

@@ -65,7 +65,7 @@ export function createRenderer(canvas, quality = 'high') {
     // 影の解像度
     scene.traverse((o) => {
       if (o.isLight && o.castShadow && o.shadow) {
-        const size = o.isSpotLight ? q.shadow : q.shadow;
+        const size = Math.max(q.shadow, o.userData.minShadow || 0);
         if (o.shadow.mapSize.x !== size) {
           o.shadow.mapSize.set(size, size);
           o.shadow.map?.dispose();

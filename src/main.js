@@ -62,7 +62,8 @@ scene.add(new THREE.HemisphereLight(0x2c3a58, 0x1a120a, 0.5));
 // いちばん近い灯りだけが影を落とす（影の計算を1灯分に抑える）
 const shadowLight = new THREE.PointLight(0xff9447, 0, 8, 2);
 shadowLight.castShadow = true;
-shadowLight.shadow.mapSize.set(G.shadowSize, G.shadowSize);
+shadowLight.userData.minShadow = 1024; // 女将の影の輪郭が崩れないよう、画質を下げても最低限の解像度を保つ
+shadowLight.shadow.mapSize.setScalar(Math.max(G.shadowSize, 1024));
 shadowLight.shadow.bias = -0.003;
 shadowLight.shadow.normalBias = 0.02;
 shadowLight.shadow.camera.near = 0.08;
@@ -76,31 +77,48 @@ const W = {
   kikyo: buildKikyo(ctx),
   genkan: buildGenkan(ctx),
 };
-const okami = buildOkami();
+// 女将は姿を見せない。灯りの前に立ったときの影だけで現れる
+const okami = buildOkami({ mode: 'caster' });
 okami.visible = true;
-okami.position.set(0, -50, 0); // 灯りの数を変えないよう、使わないときは床下に置く
-const okamiFace = okami.userData.faceLight;
+okami.position.set(0, -50, 0); // 使わないときは床下に置く
 scene.add(okami);
 function showOkami(on) {
-  okamiFace.intensity = on ? 0.7 : 0;
   if (!on) okami.position.y = -50;
 }
-const okamiShadow = buildOkami({ shadowOnly: true });
+// 鏡の中にだけ映る黒い人影
+const mirrorFigure = buildOkami({ mode: 'silhouette' });
+scene.add(mirrorFigure);
+let mirrorFigureOn = false;
+{
+  const mirror = W.shobu.mirror;
+  const orig = mirror.onBeforeRender;
+  mirror.onBeforeRender = function (...args) {
+    mirrorFigure.visible = mirrorFigureOn;
+    orig.apply(this, args);
+    mirrorFigure.visible = false;
+  };
+}
+// 二周目、帳場の前に「影だけ」が立つ
+const okamiShadow = buildOkami({ mode: 'caster' });
+okamiShadow.visible = false;
 scene.add(okamiShadow);
+// 影を落とさせたい灯り（驚かせの演出中だけ使う）
+let forcedLamp = null;
 G.setQuality(save.settings.quality);
 
 // 二周目の差分（SecondLapSwitch）
 const okamiHit = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.6, 0.6), new THREE.MeshBasicMaterial({ visible: false }));
 okamiHit.userData = { id: 'okami', enabled: false };
-okamiHit.position.set(0.2, 0.8, 3.15);
+okamiHit.position.set(5.7, 0.8, 3.28);
 scene.add(okamiHit);
 ctx.hits.push(okamiHit);
 // 女将の影は最初はいない。二周目で娘の手紙を手に入れたあと、帳場の前に現れる
-okamiShadow.position.set(0.2, 0, 3.15);
-okamiShadow.rotation.y = 0;
-const OKAMI_SPOT = new THREE.Vector3(0.2, 1.0, 3.15);
+// 帳場と玄関のあいだ、提灯（玄関寄りの一つ）に照らされる壁際に立つ。壁に横顔の影が落ちる
+okamiShadow.position.set(5.7, 0, 3.28);
+okamiShadow.rotation.y = -Math.PI / 2;
+const OKAMI_SPOT = new THREE.Vector3(5.7, 1.0, 3.28);
 let okamiArrived = false;
-ctx.block.push({ c: [0.2, 3.15, 0.25 + R], when: () => okamiArrived });
+ctx.block.push({ c: [5.7, 3.28, 0.22 + R], when: () => okamiArrived });
 if (lap2) {
   W.kikyo.letter.visible = true;
   W.choba.setFigure(false);
@@ -372,18 +390,25 @@ function passingShadow() {
 }
 
 let flashUntil = 0;
-// 驚かせ1：鏡台を調べると、鏡に女将が0.5秒映る
+// 驚かせ1：鏡台を調べると、鏡に女将の黒い影が0.5秒映る。振り向いても誰もいない
 function mirrorScare() {
   const f = new THREE.Vector3(-Math.sin(player.yaw), 0, -Math.cos(player.yaw));
   const side = new THREE.Vector3(-f.z, 0, f.x);
-  okami.position.copy(player.pos).addScaledVector(f, -1.05).addScaledVector(side, 0.12);
-  okami.position.y = 0;
-  okami.rotation.y = player.yaw + Math.PI;
-  showOkami(true);
+  mirrorFigure.position.copy(player.pos).addScaledVector(f, -1.05).addScaledVector(side, 0.12);
+  mirrorFigure.position.y = 0;
+  mirrorFigure.rotation.y = player.yaw + Math.PI;
+  mirrorFigureOn = true;
+  // 行灯がふっと燃え上がり、背後の壁が明るくなる（黒い人影が浮かぶ）
+  W.shobu.andonLamp.level = 2.4;
+  // 同じ場所に影も落ちる
+  okami.position.copy(mirrorFigure.position);
+  okami.rotation.y = mirrorFigure.rotation.y;
   audio.breath(okami.position.clone().setY(1.4), 0.25);
   audio.drone(3, 0.1);
   flashUntil = now() + 0.5;
   setTimeout(() => {
+    mirrorFigureOn = false;
+    W.shobu.andonLamp.level = 1;
     showOkami(false);
     setTimeout(() => {
       state.hasShobu = true;
@@ -412,31 +437,59 @@ function lanternScare() {
   }, 1700 + 7 * 600);
 }
 
-// 驚かせ3：花札錠が開く直前、背後に女将が立つ
+// 驚かせ3：花札錠が開く直前、灯りが細り、廊下側からの明かりで背後に立つ女将の影が壁に伸びる。
+// 「お帰りですか」の声に振り向いても、そこには誰もいない
 let turnAnim = null;
+let camAnim = null;
 function genkanScare() {
   state.phase = 'scene';
-  audio.unlock(W.genkan.lockPos);
-  const f = new THREE.Vector3(-Math.sin(player.yaw), 0, -Math.cos(player.yaw));
+  const Gk = W.genkan;
+  audio.unlock(Gk.lockPos);
+  // 一歩下がって、錠の脇の壁を見る
   setTimeout(() => {
-    const p = player.pos.clone().addScaledVector(f, -1.05);
+    const to = new THREE.Vector3(9.2, 0, 6.15);
+    const target = new THREE.Vector3(9.6, 1.3, 7.4);
+    const dx = target.x - to.x, dz = target.z - to.z;
+    camAnim = {
+      t0: now(), dur: 1.4, from: player.pos.clone(), to: to.setY(player.pos.y),
+      fromYaw: player.yaw, toYaw: player.yaw + (((Math.atan2(-dx, -dz) - player.yaw + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI),
+      fromPitch: player.pitch, toPitch: Math.atan2(target.y - EYE - player.floorY, Math.hypot(dx, dz)),
+    };
+  }, 500);
+  // 灯りが細り、背後に影の主が立つ
+  setTimeout(() => {
+    Gk.domaLamp.level = 0.12;
+    Gk.lanternLamp.level = 0.18;
+    audio.snuff(Gk.lanternLamp.pos);
+    const sp = Gk.scareSpot;
+    const dir = player.pos.clone().sub(sp.position).setY(0).normalize();
+    const p = player.pos.clone().addScaledVector(dir, -0.9);
     okami.position.set(p.x, player.floorAt(p.x, p.z), p.z);
-    okami.rotation.y = player.yaw; // プレイヤーの背中を向いて立つ
-    showOkami(true);
+    okami.rotation.y = Math.atan2(dir.x, dir.z);
+    sp.shadow.autoUpdate = true;
+    scareRamp = { t0: now(), from: 0, to: 14, dur: 1.6 };
+    audio.creak(okami.position.clone().setY(0.2), 0.2, 0.6);
+  }, 2100);
+  setTimeout(() => {
     audio.voice(MSG.okamiVoice);
     ui.subtitle(`「${MSG.okamiVoice}」`, 2400);
     audio.breath(okami.position.clone().setY(1.4), 0.2);
-  }, 900);
+  }, 4200);
   setTimeout(() => {
     turnAnim = { t0: now(), from: player.yaw, to: player.yaw + Math.PI, fromPitch: player.pitch, dur: 1.5 };
-  }, 2000);
+  }, 5600);
+  // 振り向く途中で影は消える
+  setTimeout(() => {
+    showOkami(false);
+    scareRamp = { t0: now(), from: W.genkan.scareSpot.intensity, to: 0, dur: 0.4 };
+  }, 6300);
   setTimeout(() => {
     G.film.uniforms.fade.value = 1;
-    showOkami(false);
     audio.drone(4, 0.12);
     setTimeout(endingA, 1800);
-  }, 4300);
+  }, 7600);
 }
+let scareRamp = null;
 
 // ---------------------------------------------------------------- エンディング
 function finish(key, title, lines, note) {
@@ -540,7 +593,7 @@ sens.addEventListener('input', () => {
 qual.addEventListener('change', () => {
   save.settings.quality = qual.value;
   G.setQuality(qual.value);
-  shadowLight.shadow.mapSize.set(G.shadowSize, G.shadowSize);
+  shadowLight.shadow.mapSize.setScalar(Math.max(G.shadowSize, 1024));
   shadowLight.shadow.map?.dispose();
   shadowLight.shadow.map = null;
   writeSave(save);
@@ -676,6 +729,12 @@ function frame() {
       }
     }
   }
+  // 二周目：影の主がいるあいだ、近くの廊下の提灯が影を落とす
+  if (okamiArrived && !forcedLamp && player.pos.distanceTo(OKAMI_SPOT) < 4.5) {
+    const lan = W.corridor.lanterns[2].lamp;
+    if (lan.vis > 0.3 && lan.level > 0.1) best = lan;
+  }
+  if (forcedLamp && forcedLamp.vis > 0.3) best = forcedLamp;
   shadowLamp = best;
   if (best) {
     best.light.intensity = 0;
@@ -737,6 +796,7 @@ function frame() {
 
   okami.userData.update(t);
   okamiShadow.userData.update(t);
+  mirrorFigure.userData.update(t);
 
   // 鏡は菖蒲の間にいるときだけ描く
   W.shobu.mirror.visible = zone === 'shobu';
@@ -767,6 +827,18 @@ function frame() {
       const moved = player.update(dt, gate);
       footsteps(moved, zone, dt);
       zoneEvents(zone);
+    }
+    if (camAnim) {
+      const k = ease(Math.min(1, (t - camAnim.t0) / camAnim.dur));
+      player.pos.lerpVectors(camAnim.from, camAnim.to, k);
+      player.yaw = lerp(camAnim.fromYaw, camAnim.toYaw, k);
+      player.pitch = lerp(camAnim.fromPitch, camAnim.toPitch, k);
+      if (k >= 1) camAnim = null;
+    }
+    if (scareRamp) {
+      const k = Math.min(1, (t - scareRamp.t0) / scareRamp.dur);
+      W.genkan.scareSpot.intensity = lerp(scareRamp.from, scareRamp.to, k);
+      if (k >= 1) scareRamp = null;
     }
     if (turnAnim) {
       const k = Math.min(1, (t - turnAnim.t0) / turnAnim.dur);
@@ -852,18 +924,16 @@ $('start').textContent = 'はじめる';
 window.__inn = {
   state, player, ui, act, W, save,
   focus: () => focus,
-  debugOkamiAt(x, y, z, ry) {
-    okami.position.set(x, y, z);
-    okami.rotation.y = ry;
-    showOkami(true);
-  },
-  debugOkamiBehind() {
+  debugMirror(on) {
     const f = new THREE.Vector3(-Math.sin(player.yaw), 0, -Math.cos(player.yaw));
     const side = new THREE.Vector3(-f.z, 0, f.x);
-    okami.position.copy(player.pos).addScaledVector(f, -1.05).addScaledVector(side, 0.12);
-    okami.position.y = 0;
-    okami.rotation.y = player.yaw + Math.PI;
-    showOkami(true);
+    mirrorFigure.position.copy(player.pos).addScaledVector(f, -1.05).addScaledVector(side, 0.12);
+    mirrorFigure.position.y = 0;
+    mirrorFigure.rotation.y = player.yaw + Math.PI;
+    okami.position.copy(mirrorFigure.position);
+    okami.rotation.y = mirrorFigure.rotation.y;
+    mirrorFigureOn = on;
+    W.shobu.andonLamp.level = on ? 2.4 : 1;
   },
   look(x, z, tx, ty, tz) {
     player.pos.set(x, EYE, z);

@@ -277,7 +277,9 @@ function ellipsoid(r, sx, sy, sz, mat, x, y, z, seg = 24) {
   return m;
 }
 
-export function buildOkami({ shadowOnly = false } = {}) {
+// mode: 'caster'     姿は見えず、灯りに照らされて影だけを落とす
+//       'silhouette' 黒い半透明の人影（鏡の中にだけ映すのに使う）
+export function buildOkami({ mode = 'caster' } = {}) {
   const M = materials();
   const g = new THREE.Group();
 
@@ -434,19 +436,21 @@ export function buildOkami({ shadowOnly = false } = {}) {
   head.add(strand([[0.02, 0.225, 0.075], [0.03, 0.165, 0.09], [0.022, 0.115, 0.093]]));
   head.rotation.x = 0.2;
 
-  if (shadowOnly) {
-    const dark = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.9, depthWrite: false });
+  if (mode === 'silhouette') {
+    const dark = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.92, depthWrite: false });
     g.traverse((o) => {
       if (o.isMesh) o.material = dark;
     });
   } else {
+    // 色も奥行きも書かない材質：画面には何も映らないが、影の計算には加わる
+    const ghost = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false });
     g.traverse((o) => {
-      if (o.isMesh) o.castShadow = o.receiveShadow = true;
+      if (o.isMesh) {
+        o.material = ghost;
+        o.castShadow = true;
+        o.frustumCulled = false;
+      }
     });
-    const faceLight = new THREE.PointLight(0xffb070, 0, 1.6, 2);
-    faceLight.position.set(0.1, 1.55, 0.45);
-    g.add(faceLight);
-    g.userData.faceLight = faceLight;
   }
   // ゆっくり息をする。少しずつ首が傾く
   g.userData.update = (t) => {

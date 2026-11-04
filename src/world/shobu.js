@@ -87,7 +87,7 @@ export function buildShobu(ctx) {
 
   // 行灯
   const a = andon(6.12, S.z0 + 0.3);
-  ctx.addLamp({ pos: new THREE.Vector3(6.12, 0.5, S.z0 + 0.3), color: 0xff9a50, base: 4.6, paper: a.paper.material, paperBase: 1.3, kind: 'andon', zone: 'shobu' });
+  const andonLamp = ctx.addLamp({ pos: new THREE.Vector3(6.12, 0.5, S.z0 + 0.3), color: 0xff9a50, base: 4.6, paper: a.paper.material, paperBase: 1.3, kind: 'andon', zone: 'shobu' });
 
   const H = {
     mirror: hitBox(hits, 'mirror', 0.6, 1.6, 0.4, KX, 0.8, KZ),
@@ -108,5 +108,5 @@ export function buildShobu(ctx) {
   ctx.block.push({ c: [6.12, S.z0 + 0.3, 0.17 + R] });
   ctx.zones.push({ name: 'shobu', r: [S.x0, S.x1, S.z0, S.z1 + 0.06] });
 
-  return { H, door, mirror, shobuCard, mirrorPos: new THREE.Vector3(KX, 1.16, KZ), doorPos: new THREE.Vector3(S.door + 0.4, 0.9, S.z1) };
+  return { H, door, mirror, andonLamp, shobuCard, mirrorPos: new THREE.Vector3(KX, 1.16, KZ), doorPos: new THREE.Vector3(S.door + 0.4, 0.9, S.z1) };
 }

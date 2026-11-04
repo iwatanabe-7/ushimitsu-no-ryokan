@@ -116,7 +116,7 @@ export function buildTsubaki(ctx) {
   }
   scene.add(camelliaVase(-0.55, 0.13, -2.18));
 
-  const card = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.004, 0.128), cardMaterials('tsubaki'));
+  const card = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.004, 0.16), cardMaterials('tsubaki'));
   card.position.set(-1.3, 0.132, -2.05);
   card.rotation.y = 0.35;
   card.castShadow = card.receiveShadow = true;
@@ -273,7 +273,9 @@ export function buildTsubaki(ctx) {
 
 export function cardMaterials(kind) {
   const back = std({ color: 0x2a120c, roughness: 0.5 });
-  return [back, back, std({ map: T.hanafudaTexture(kind), roughness: 0.45 }), back, back, back];
+  // 札の面は暗がりでも絵柄が分かるよう、わずかに自ら光らせる
+  const map = T.hanafudaTexture(kind);
+  return [back, back, std({ map, emissiveMap: map, emissive: 0xffffff, emissiveIntensity: 0.45, roughness: 0.45 }), back, back, back];
 }
 
 function camelliaVase(x, y, z) {

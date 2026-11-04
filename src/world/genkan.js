@@ -104,14 +104,27 @@ export function buildGenkan(ctx) {
 
   // 大提灯
   const lan = chochin(8.0, 1.75, 4.6, { kanji: '宿', scale: 1.35 });
-  ctx.addLamp({ pos: new THREE.Vector3(8.0, 1.7, 4.6), color: 0xff8a40, base: 6.5, distance: 9, paper: lan.paper.material, paperBase: 1.7, kind: 'lantern', zone: 'genkan' });
+  const lanternLamp = ctx.addLamp({ pos: new THREE.Vector3(8.0, 1.7, 4.6), color: 0xff8a40, base: 6.5, distance: 9, paper: lan.paper.material, paperBase: 1.7, kind: 'lantern', zone: 'genkan' });
   ctx.sway.push({ mesh: lan.group, seed: 5.1, lantern: true });
 
   // 土間の置き行灯
   const ga = andon(9.9, 6.9);
   ga.group.position.y = D;
-  ctx.addLamp({ pos: new THREE.Vector3(9.9, D + 0.5, 6.9), color: 0xff9447, base: 2.6, paper: ga.paper.material, paperBase: 1.3, kind: 'andon', zone: 'genkan' });
+  const domaLamp = ctx.addLamp({ pos: new THREE.Vector3(9.9, D + 0.5, 6.9), color: 0xff9447, base: 2.6, paper: ga.paper.material, paperBase: 1.3, kind: 'andon', zone: 'genkan' });
   ctx.block.push({ c: [9.9, 6.9, 0.17 + R] });
+
+  // 驚かせ3用：廊下側から玄関へ差し込む灯り。普段は消しておき、影の計算もしない
+  const scareSpot = new THREE.SpotLight(0xffa060, 0, 9, 0.55, 0.45, 1.6);
+  scareSpot.position.set(8.0, 1.55, 3.3);
+  scareSpot.target.position.set(9.6, 1.0, G.z1);
+  scareSpot.castShadow = true;
+  scareSpot.shadow.mapSize.set(1024, 1024);
+  scareSpot.userData.minShadow = 1024;
+  scareSpot.shadow.camera.near = 0.3;
+  scareSpot.shadow.camera.far = 9;
+  scareSpot.shadow.bias = -0.0005;
+  scareSpot.shadow.autoUpdate = false;
+  scene.add(scareSpot, scareSpot.target);
 
   const H = {
     getabako: hitBox(hits, 'getabako', 0.5, 1.1, 1.8, (getaX0 + getaX1) / 2, D + 0.5, (getaZ0 + getaZ1) / 2),
@@ -126,7 +139,7 @@ export function buildGenkan(ctx) {
   ctx.floors.push({ r: [G.x0, G.x1, G.step + 0.05, G.z1], y: D });
 
   return {
-    H, panels, slots, outside, moonDoor,
+    H, panels, slots, outside, moonDoor, lanternLamp, domaLamp, scareSpot,
     lockPos: new THREE.Vector3(9.45, 1.0, G.z1 - 0.1),
     open(t) {
       panels[1].position.x = d0 + 1.35 - 0.85 * t;
