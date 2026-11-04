@@ -267,4 +267,72 @@ export class InnAudio {
       o.stop(t + dur + 0.1);
     }
   }
+
+  setVolume(v) {
+    this.volume = v;
+    if (this.master) this.master.gain.value = 0.9 * v;
+  }
+
+  // 柱時計の鐘
+  bong(pos, gain = 0.5) {
+    if (!this.ready) return;
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    const out = pos ? this.panner(pos) : this.master;
+    for (const [f, g, d] of [[196, 1, 4.5], [392.5, 0.5, 3], [589, 0.25, 2], [787, 0.15, 1.5], [246.9, 0.3, 3.5]]) {
+      const o = ctx.createOscillator();
+      o.type = 'sine';
+      o.frequency.value = f;
+      const gg = ctx.createGain();
+      gg.gain.setValueAtTime(0.0001, t);
+      gg.gain.exponentialRampToValueAtTime(gain * g, t + 0.01);
+      gg.gain.exponentialRampToValueAtTime(0.0001, t + d);
+      o.connect(gg).connect(out);
+      o.start(t);
+      o.stop(t + d + 0.1);
+    }
+    this.burst(pos, { type: 'bandpass', freq: 2200, q: 3, dur: 0.05, gain: gain * 0.6 });
+  }
+
+  // 息づかい（すぐ近くで）
+  breath(pos, gain = 0.2) {
+    if (!this.ready) return;
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    const src = this.noiseSource();
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.setValueAtTime(900, t);
+    bp.frequency.linearRampToValueAtTime(600, t + 1.4);
+    bp.Q.value = 0.9;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(gain, t + 0.5);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 1.5);
+    src.connect(bp).connect(g).connect(pos ? this.panner(pos) : this.master);
+    src.start(t);
+    src.stop(t + 1.6);
+  }
+
+  // 灯が消える音
+  snuff(pos) {
+    this.burst(pos, { type: 'lowpass', freq: 500, q: 0.5, dur: 0.35, gain: 0.25, attack: 0.02 });
+  }
+
+  // 女将の声。音声合成が使えない環境では字幕だけになる
+  voice(text) {
+    try {
+      const ss = window.speechSynthesis;
+      if (!ss) return;
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'ja-JP';
+      u.pitch = 0.55;
+      u.rate = 0.72;
+      u.volume = 0.55 * (this.volume ?? 1);
+      const v = ss.getVoices().find((vv) => vv.lang && vv.lang.startsWith('ja'));
+      if (v) u.voice = v;
+      else return;
+      ss.speak(u);
+    } catch (_) { /* 音声合成なし */ }
+  }
 }

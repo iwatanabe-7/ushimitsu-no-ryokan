@@ -312,7 +312,8 @@ export function latticeLightMap() {
 }
 
 // 掛け軸：椿の水墨と落款
-export function kakejikuTexture() {
+export function kakejikuTexture(kind = 'tsubaki') {
+  if (kind === 'shobu') return irisScroll();
   const W = 256, H = 768;
   const [c, x] = makeCanvas(W, H);
   x.fillStyle = '#3a3624';
@@ -377,33 +378,36 @@ export function kakejikuTexture() {
   return toTexture(c);
 }
 
-// 花札「椿」
-export function hanafudaTexture(kind = 'tsubaki') {
+// 花札（椿・菖蒲・桔梗）
+const cardCache = {};
+export function hanafudaCanvas(kind = 'tsubaki') {
+  if (cardCache[kind]) return cardCache[kind];
   const W = 160, H = 256;
   const [c, x] = makeCanvas(W, H);
   x.fillStyle = '#1d0f0a';
   x.fillRect(0, 0, W, H);
-  x.fillStyle = '#efe3c4';
+  const bg = { tsubaki: '#efe3c4', shobu: '#e9e1c8', kikyo: '#1f2a44' }[kind];
+  x.fillStyle = bg;
   x.fillRect(8, 8, W - 16, H - 16);
-  // 地
-  x.fillStyle = '#2b2b2b';
-  x.beginPath();
-  x.moveTo(8, 190);
-  x.quadraticCurveTo(80, 170, W - 8, 200);
-  x.lineTo(W - 8, H - 8);
-  x.lineTo(8, H - 8);
-  x.fill();
+  const leaf = (lx, ly, a, rx = 24, ry = 11, col = '#21452c') => {
+    x.save();
+    x.translate(lx, ly);
+    x.rotate(a);
+    x.fillStyle = col;
+    x.beginPath();
+    x.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+    x.fill();
+    x.restore();
+  };
   if (kind === 'tsubaki') {
-    x.fillStyle = '#21452c';
-    for (const [lx, ly, a] of [[60, 120, -0.8], [110, 150, 0.6], [45, 175, 0.2], [120, 95, -0.3]]) {
-      x.save();
-      x.translate(lx, ly);
-      x.rotate(a);
-      x.beginPath();
-      x.ellipse(0, 0, 24, 11, 0, 0, Math.PI * 2);
-      x.fill();
-      x.restore();
-    }
+    x.fillStyle = '#2b2b2b';
+    x.beginPath();
+    x.moveTo(8, 190);
+    x.quadraticCurveTo(80, 170, W - 8, 200);
+    x.lineTo(W - 8, H - 8);
+    x.lineTo(8, H - 8);
+    x.fill();
+    for (const l of [[60, 120, -0.8], [110, 150, 0.6], [45, 175, 0.2], [120, 95, -0.3]]) leaf(...l);
     x.fillStyle = '#c0141f';
     for (let p = 0; p < 5; p++) {
       const a = (p / 5) * Math.PI * 2 - Math.PI / 2;
@@ -415,14 +419,81 @@ export function hanafudaTexture(kind = 'tsubaki') {
     x.beginPath();
     x.arc(86, 128, 9, 0, Math.PI * 2);
     x.fill();
+  } else if (kind === 'shobu') {
+    // 水辺と八橋
+    x.fillStyle = '#3d5f8a';
+    x.fillRect(8, 196, W - 16, H - 204);
+    x.fillStyle = '#5a3a1a';
+    x.save();
+    x.translate(80, 205);
+    x.rotate(-0.25);
+    x.fillRect(-70, -6, 140, 12);
+    x.restore();
+    // 剣のような葉
+    x.fillStyle = '#2a5a2e';
+    for (const [bx, h, lean] of [[40, 150, -0.1], [62, 175, 0.05], [100, 160, 0.12], [124, 140, 0.2], [80, 120, -0.05]]) {
+      x.beginPath();
+      x.moveTo(bx - 5, 200);
+      x.quadraticCurveTo(bx + lean * 100, 200 - h * 0.6, bx + lean * 120, 200 - h);
+      x.quadraticCurveTo(bx + lean * 80 + 6, 200 - h * 0.5, bx + 6, 200);
+      x.fill();
+    }
+    // 花
+    for (const [fx, fy] of [[64, 60], [104, 84]]) {
+      x.fillStyle = '#5a2a8a';
+      for (const a of [-1.9, -0.6, 0.6, 1.9]) leaf(fx + Math.cos(a - Math.PI / 2) * 10, fy + Math.sin(a - Math.PI / 2) * 10, a, 14, 7, '#5a2a8a');
+      leaf(fx, fy + 8, Math.PI / 2, 12, 6, '#7a44b0');
+      x.fillStyle = '#e8c840';
+      x.fillRect(fx - 1.5, fy - 4, 3, 10);
+    }
+  } else {
+    // 桔梗：夜空に星形の花
+    x.fillStyle = '#c8b24a';
+    x.beginPath();
+    x.arc(118, 52, 18, 0, Math.PI * 2);
+    x.fill();
+    x.fillStyle = '#1f2a44';
+    x.beginPath();
+    x.arc(110, 46, 16, 0, Math.PI * 2);
+    x.fill();
+    x.strokeStyle = '#2a5a2e';
+    x.lineWidth = 3;
+    for (const [sx, ex, ey] of [[50, 58, 120], [90, 96, 150], [120, 112, 110]]) {
+      x.beginPath();
+      x.moveTo(sx, H - 8);
+      x.quadraticCurveTo(sx + 10, (H + ey) / 2, ex, ey);
+      x.stroke();
+    }
+    const star = (cx, cy, r) => {
+      x.fillStyle = '#6a52c8';
+      x.beginPath();
+      for (let i = 0; i < 10; i++) {
+        const a = (i / 10) * Math.PI * 2 - Math.PI / 2;
+        const rr = i % 2 ? r * 0.55 : r;
+        x.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr);
+      }
+      x.fill();
+      x.fillStyle = '#e8e0f8';
+      x.beginPath();
+      x.arc(cx, cy, r * 0.15, 0, Math.PI * 2);
+      x.fill();
+    };
+    star(58, 112, 22);
+    star(96, 144, 18);
+    star(112, 104, 15);
   }
-  x.fillStyle = '#111';
+  x.fillStyle = kind === 'kikyo' ? '#e8dfcb' : '#111';
   x.font = `700 30px ${FONT}`;
   x.textAlign = 'center';
-  x.fillText('椿', 34, 50);
+  const name = { tsubaki: ['椿'], shobu: ['菖', '蒲'], kikyo: ['桔', '梗'] }[kind];
+  name.forEach((ch, i) => x.fillText(ch, 34, 50 + i * 32));
   x.fillStyle = 'rgba(80,50,20,0.18)';
   x.fillRect(8, 8, W - 16, H - 16);
-  const t = toTexture(c);
+  cardCache[kind] = c;
+  return c;
+}
+export function hanafudaTexture(kind = 'tsubaki') {
+  const t = toTexture(hanafudaCanvas(kind));
   t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
   return t;
 }
@@ -594,4 +665,197 @@ export function radialGlow(color = '255,150,60') {
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   return t;
+}
+
+// 菖蒲の間の掛け軸：菖蒲の水墨
+function irisScroll() {
+  const W = 256, H = 768;
+  const [c, x] = makeCanvas(W, H);
+  x.fillStyle = '#2c3430';
+  x.fillRect(0, 0, W, H);
+  smoothNoise(x, W, H, 16, 0.25, 81, [60, 80, 70]);
+  x.fillStyle = '#5a5a3a';
+  x.fillRect(18, 90, W - 36, H - 200);
+  x.fillStyle = '#d2c8ac';
+  x.fillRect(28, 110, W - 56, H - 250);
+  smoothNoise(x, W, H, 8, 0.14, 82, [120, 95, 50]);
+  x.fillStyle = 'rgba(30,40,30,0.8)';
+  for (const [bx, h, lean] of [[90, 330, -0.05], [120, 380, 0.04], [150, 300, 0.1], [70, 260, -0.12]]) {
+    x.beginPath();
+    x.moveTo(bx - 4, 600);
+    x.quadraticCurveTo(bx + lean * 300, 600 - h * 0.6, bx + lean * 360, 600 - h);
+    x.quadraticCurveTo(bx + lean * 250 + 5, 600 - h * 0.5, bx + 5, 600);
+    x.fill();
+  }
+  for (const [fx, fy] of [[118, 250], [150, 320]]) {
+    x.fillStyle = 'rgba(70,40,110,0.85)';
+    for (const a of [-1.9, -0.6, 0.6, 1.9]) {
+      x.save();
+      x.translate(fx + Math.cos(a - Math.PI / 2) * 14, fy + Math.sin(a - Math.PI / 2) * 14);
+      x.rotate(a);
+      x.beginPath();
+      x.ellipse(0, 0, 18, 8, 0, 0, Math.PI * 2);
+      x.fill();
+      x.restore();
+    }
+  }
+  x.fillStyle = 'rgba(20,16,12,0.9)';
+  x.font = `600 26px ${FONT}`;
+  x.textAlign = 'center';
+  ['水', '面', 'の', '月'].forEach((ch, i) => x.fillText(ch, 62, 160 + i * 32));
+  x.fillStyle = '#a3241f';
+  x.fillRect(50, 300, 22, 22);
+  x.fillStyle = '#1b130c';
+  x.fillRect(0, 0, W, 10);
+  x.fillRect(0, H - 14, W, 14);
+  return toTexture(c);
+}
+
+// 部屋札（廊下側の小さな木札）
+export function namePlate(text) {
+  const W = 128, H = 320;
+  const [c, x] = makeCanvas(W, H);
+  x.drawImage(woodCanvas('#8a6a48', 91, 64, 256, 0.8), 0, 0, W, H);
+  x.strokeStyle = 'rgba(30,15,5,0.8)';
+  x.lineWidth = 6;
+  x.strokeRect(4, 4, W - 8, H - 8);
+  x.fillStyle = 'rgba(20,10,5,0.92)';
+  x.font = `700 ${text.length > 2 ? 64 : 80}px ${FONT}`;
+  x.textAlign = 'center';
+  x.textBaseline = 'middle';
+  const step = (H - 60) / text.length;
+  [...text].forEach((ch, i) => x.fillText(ch, W / 2, 30 + step * (i + 0.5)));
+  return toTexture(c);
+}
+
+// 帳場の障子。女将の影を映すかどうかを選べる
+export function shojiSilhouette(withFigure) {
+  const W = 512, H = 512;
+  const [c, x] = makeCanvas(W, H);
+  x.drawImage(shojiTexture().image, 0, 0);
+  if (withFigure) {
+    x.fillStyle = 'rgba(15,10,8,0.82)';
+    const cx = 300;
+    // 髷
+    x.beginPath();
+    x.ellipse(cx, 120, 34, 24, 0, 0, Math.PI * 2);
+    x.fill();
+    // 頭
+    x.beginPath();
+    x.ellipse(cx, 160, 30, 36, 0, 0, Math.PI * 2);
+    x.fill();
+    // 着物
+    x.beginPath();
+    x.moveTo(cx - 24, 190);
+    x.quadraticCurveTo(cx - 80, 230, cx - 86, 330);
+    x.lineTo(cx - 96, H);
+    x.lineTo(cx + 96, H);
+    x.lineTo(cx + 86, 330);
+    x.quadraticCurveTo(cx + 80, 230, cx + 24, 190);
+    x.fill();
+  }
+  return toTexture(c);
+}
+
+// 玄関の引き戸（格子に磨りガラス、外は霧の月明かり）
+export function genkanDoorTexture() {
+  const W = 256, H = 512;
+  const [c, x] = makeCanvas(W, H);
+  const g = x.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#b8c4d8');
+  g.addColorStop(1, '#6a7488');
+  x.fillStyle = g;
+  x.fillRect(0, 0, W, H);
+  smoothNoise(x, W, H, 6, 0.3, 95, [40, 50, 70]);
+  // 外に立つ木の影
+  x.fillStyle = 'rgba(30,35,50,0.5)';
+  x.fillRect(180, 0, 18, H);
+  x.beginPath();
+  x.ellipse(150, 90, 90, 60, 0, 0, Math.PI * 2);
+  x.fill();
+  x.fillStyle = '#24160c';
+  x.fillRect(0, 0, W, 14);
+  x.fillRect(0, H - 40, W, 40);
+  x.fillRect(0, 0, 14, H);
+  x.fillRect(W - 14, 0, 14, H);
+  for (let i = 1; i < 4; i++) x.fillRect((i * W) / 4 - 3, 0, 6, H - 40);
+  for (let j = 1; j < 8; j++) x.fillRect(0, (j * (H - 40)) / 8 - 3, W, 6);
+  return toTexture(c);
+}
+
+// 着物（桔梗柄、娘のもの）
+export function kimonoTexture() {
+  const S = 256;
+  const [c, x] = makeCanvas(S, S);
+  x.fillStyle = '#3a2a5a';
+  x.fillRect(0, 0, S, S);
+  smoothNoise(x, S, S, 8, 0.3, 97, [20, 10, 40]);
+  const r = rng(98);
+  for (let i = 0; i < 26; i++) {
+    const cx = r() * S, cy = r() * S, rad = 8 + r() * 8;
+    x.fillStyle = 'rgba(200,190,240,0.7)';
+    x.beginPath();
+    for (let k = 0; k < 10; k++) {
+      const a = (k / 10) * Math.PI * 2;
+      const rr = k % 2 ? rad * 0.5 : rad;
+      x.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr);
+    }
+    x.fill();
+  }
+  return toTexture(c, { repeat: [1.5, 2] });
+}
+
+// 手鞠
+export function temariTexture() {
+  const W = 256, H = 128;
+  const [c, x] = makeCanvas(W, H);
+  const cols = ['#a3241f', '#e8d8b0', '#2a4a7a', '#d9a030', '#3a6a3a'];
+  for (let i = 0; i < 16; i++) {
+    x.fillStyle = cols[i % cols.length];
+    x.beginPath();
+    x.moveTo((i * W) / 16, 0);
+    x.lineTo(((i + 1) * W) / 16, 0);
+    x.lineTo(((i + 0.5) * W) / 16 + 8, H / 2);
+    x.lineTo(((i + 1) * W) / 16, H);
+    x.lineTo((i * W) / 16, H);
+    x.lineTo(((i + 0.5) * W) / 16 - 8, H / 2);
+    x.fill();
+  }
+  x.fillStyle = 'rgba(0,0,0,0.25)';
+  x.fillRect(0, H / 2 - 4, W, 8);
+  return toTexture(c);
+}
+
+// 革の旅行鞄
+export function leatherTexture() {
+  const S = 256;
+  const [c, x] = makeCanvas(S, S);
+  x.fillStyle = '#4a2c18';
+  x.fillRect(0, 0, S, S);
+  smoothNoise(x, S, S, 10, 0.4, 99, [20, 10, 5]);
+  smoothNoise(x, S, S, 64, 0.2, 100, [120, 80, 50]);
+  speckle(x, S, S, 2000, 101, ['#2a180c', '#6a4a30'], 1.2);
+  return toTexture(c);
+}
+
+// 紙切れ（日記・手紙）
+export function paperScrap(lines, { seed = 111, tint = '#ddd2b4' } = {}) {
+  const W = 256, H = 320;
+  const [c, x] = makeCanvas(W, H);
+  x.fillStyle = tint;
+  x.beginPath();
+  const r = rng(seed);
+  x.moveTo(6, 4);
+  for (let px = 6; px < W; px += 16) x.lineTo(px, 4 + r() * 8);
+  x.lineTo(W - 4, H - 6);
+  for (let px = W - 6; px > 0; px -= 16) x.lineTo(px, H - 4 - r() * 10);
+  x.fill();
+  smoothNoise(x, W, H, 6, 0.2, seed + 1, [120, 100, 60]);
+  x.fillStyle = 'rgba(25,20,15,0.85)';
+  x.font = `400 22px ${FONT}`;
+  x.textAlign = 'center';
+  lines.forEach((col, i) => {
+    [...col].forEach((ch, j) => x.fillText(ch, W - 34 - i * 30, 40 + j * 24));
+  });
+  return toTexture(c);
 }
