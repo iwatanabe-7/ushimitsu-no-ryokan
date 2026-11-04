@@ -66,8 +66,11 @@ export function buildUpstairs(ctx) {
   g2.add(win);
   for (const z of [C2.z0 + 0.05, MATSU.cz - 1.8, MATSU.cz + 1.86, TAKE.cz + 1.8, C2.z1 - 0.05]) post(C2.x0 + 0.03, z);
   const l2 = chochin(-5.8, 1.98, 5.9);
-  ctx.addLamp({ pos: new THREE.Vector3(-5.8, F2 + 1.9, 5.9), color: 0xff8536, base: 3.0, distance: 6, paper: l2.paper.material, paperBase: 1.6, kind: 'lantern', zone: 'f2' });
+  ctx.addLamp({ pos: new THREE.Vector3(-5.8, F2 + 1.9, 5.9), color: 0xff8536, base: 4.8, distance: 8, paper: l2.paper.material, paperBase: 1.6, kind: 'lantern', zone: 'f2' });
   ctx.sway.push({ mesh: l2.group, seed: 11, lantern: true });
+  const l3 = chochin(-5.8, 1.98, 2.9);
+  ctx.addLamp({ pos: new THREE.Vector3(-5.8, F2 + 1.9, 2.9), color: 0xff8536, base: 4.0, distance: 7, paper: l3.paper.material, paperBase: 1.6, kind: 'lantern', zone: 'f2' });
+  ctx.sway.push({ mesh: l3.group, seed: 12, lantern: true });
 
   // 二つの客室は、廊下に向いた襖が南になるよう向きを回して建てる
   const room = (C, name, tint) => {
@@ -80,7 +83,7 @@ export function buildUpstairs(ctx) {
     const door = roomShell({ x0: -1.8, x1: 1.8, z0: -1.35, z1: 1.35, doorCx: 0, tex: T.fusumaTexture({ seed: name === 'matsu' ? 51 : 53, karakami: name !== 'matsu' }), tint });
     door.open(0.85); // 少し開いたまま
     // 北の壁（外側）の障子窓
-    const w = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1.0), std({ map: shojiT, emissiveMap: shojiT, emissive: 0x5d6b88, emissiveIntensity: 0.4, roughness: 0.9 }));
+    const w = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1.0), std({ map: shojiT, emissiveMap: shojiT, emissive: 0x6d7b98, emissiveIntensity: 0.6, roughness: 0.9 }));
     w.position.set(0.6, 1.35, -1.34);
     g.add(w);
     const toWorld = (lx, lz) => [C.cx + lz, C.cz - lx];
@@ -95,6 +98,9 @@ export function buildUpstairs(ctx) {
   noteM.position.set(1.0, 0.318, -1.05);
   matsu.g.add(noteM);
   for (let i = 0; i < 2; i++) box(0.75, 0.12, 0.95, std({ color: i ? 0xc8c0b0 : 0x5a4a40, roughness: 0.95 }), -1.25, 0.06 + i * 0.12, -0.75);
+  const aM = andon(-1.3, 0.9);
+  const [max, maz] = matsu.toWorld(-1.3, 0.9);
+  ctx.addLamp({ pos: new THREE.Vector3(max, F2 + 0.5, maz), color: 0xff9447, base: 3.2, paper: aM.paper.material, paperBase: 1.3, kind: 'andon', zone: 'matsu' });
   const hm = {
     matsuNote: hitBox(hits, 'matsuNote', 0.8, 0.4, 0.45, 1.0, 0.3, -1.05),
     matsuWindow: hitBox(hits, 'matsuWindow', 1.6, 1.0, 0.1, 0.6, 1.35, -1.3),
@@ -123,7 +129,7 @@ export function buildUpstairs(ctx) {
   take.g.add(noteT);
   const aT = andon(1.3, -0.95);
   const [tax, taz] = take.toWorld(1.3, -0.95);
-  ctx.addLamp({ pos: new THREE.Vector3(tax, F2 + 0.5, taz), color: 0xff9447, base: 2.8, paper: aT.paper.material, paperBase: 1.3, kind: 'andon', zone: 'take' });
+  ctx.addLamp({ pos: new THREE.Vector3(tax, F2 + 0.5, taz), color: 0xff9447, base: 4.0, paper: aT.paper.material, paperBase: 1.3, kind: 'andon', zone: 'take' });
   const ht = {
     takeNote: hitBox(hits, 'takeNote', 0.8, 0.4, 0.45, -1.0, 0.3, -1.05),
     crane: hitBox(hits, 'crane', 0.25, 0.2, 0.25, -1.15, 0.36, -1.0),
@@ -143,6 +149,7 @@ export function buildUpstairs(ctx) {
   };
   blockLocal(matsu, 0.62, 1.38, -1.35, -0.85);
   blockLocal(matsu, -1.8, -0.85, -1.25, -0.25);
+  blockLocal(matsu, -1.47, -1.13, 0.73, 1.07);
   blockLocal(take, -1.38, -0.62, -1.35, -0.85);
   blockLocal(take, 1.13, 1.47, -1.12, -0.78);
   ctx.zones.push({ name: 'f2', r: [C2.x0, C2.x1, C2.z0, C2.z1], lv: 1 });

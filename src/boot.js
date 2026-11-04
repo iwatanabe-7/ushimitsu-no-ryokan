@@ -6,13 +6,14 @@ import './style.css';
 if (import.meta.env.VITE_FONTS === 'cdn') {
   const link = document.createElement('link');
   link.rel = 'stylesheet';
-  link.href = 'https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;600;700&display=swap';
+  link.href = 'https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;600;700&family=Yuji+Boku&display=swap';
   document.head.append(link);
 } else {
   await Promise.all([
     import('@fontsource/shippori-mincho/400.css'),
     import('@fontsource/shippori-mincho/600.css'),
     import('@fontsource/shippori-mincho/700.css'),
+    import('@fontsource/yuji-boku/400.css'),
   ]);
 }
 
@@ -25,6 +26,7 @@ try {
       document.fonts.load('700 30px "Shippori Mincho"', SAMPLE),
       document.fonts.load('600 24px "Shippori Mincho"', '0123456789' + SAMPLE),
       document.fonts.load('400 22px "Shippori Mincho"', SAMPLE),
+      document.fonts.load('400 60px "Yuji Boku"', '丑三つの旅館'),
     ]),
     wait(4000),
   ]);

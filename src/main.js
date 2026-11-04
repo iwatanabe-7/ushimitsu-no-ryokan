@@ -495,11 +495,11 @@ function clapScare() {
   }, 3900);
 }
 
-// 驚かせ2：桔梗の札を取ると、廊下の提灯が半分消えて、襖の外を足音が通り過ぎる
+// 驚かせ2：最後の札（桔梗の札）を取ると、廊下の提灯がすべて消えて、襖の外を足音が通り過ぎる
 function lanternScare() {
   state.phase = 'scene';
   const lan = W.corridor.lanterns;
-  [3, 1].forEach((idx, k) => {
+  [3, 2, 1, 0].forEach((idx, k) => {
     setTimeout(() => {
       lan[idx].lamp.level = 0;
       lan[idx].paper.material.emissiveIntensity = 0;
@@ -576,6 +576,10 @@ function finish(key, title, lines, note) {
   save.seen[key] = true;
   if (key === 'A') save.clearCount += 1;
   writeSave(save);
+  // 「すべて見届けた」は、三つの結末を見終えたときだけ出す
+  const left = ['A', 'B', 'C'].filter((k) => !save.seen[k]).length;
+  if (left === 0) note = '丑三つの旅館の結末を、すべて見届けました。';
+  else if (key === 'C' || !note) note = `まだ見ていない結末が、あと${['', '一つ', '二つ'][left]}ある。`;
   $('endTitle').textContent = title;
   const box = $('endLines');
   box.textContent = '';
@@ -626,7 +630,7 @@ function endingB(name) {
 }
 function endingC() {
   state.phase = 'scene';
-  fadeOut(3, () => finish('C', '終　真相', MSG.endC, '丑三つの旅館をすべて見届けました。'));
+  fadeOut(3, () => finish('C', '終　真相', MSG.endC));
 }
 
 function renderSeen(el) {
@@ -967,6 +971,10 @@ function frame() {
       okamiShadow.visible = true;
       okamiHit.userData.enabled = true;
       audio.creak(OKAMI_SPOT, 0.25, 1.0);
+      // 暗い廊下で、女将の影の傍の提灯だけがふたたび灯る
+      const lan = W.corridor.lanterns[2];
+      lan.lamp.level = 1.2;
+      audio.snuff(lan.lamp.pos);
     }
   }
 
@@ -1072,7 +1080,7 @@ function zoneEvents(zone) {
       if (zone === 'stairs') say(MSG.stairsFirst);
       if (zone === 'take') {
         // 竹の間に入ると、背後の廊下を小さな足音が走り抜ける
-        for (let i = 0; i < 6; i++) setTimeout(() => audio.stepWood(new THREE.Vector3(-5.8, 2.75, 9.2 - i * 1.2), 0.3), 900 + i * 230);
+        for (let i = 0; i < 6; i++) setTimeout(() => audio.stepWood(new THREE.Vector3(-5.8, 2.75, 9.2 - i * 1.2), 0.6), 900 + i * 230);
         setTimeout(() => say(MSG.takeRun), 2600);
       }
     }

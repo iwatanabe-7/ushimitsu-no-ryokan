@@ -40,53 +40,104 @@ button { font-family: var(--font); }
 }
 .btn:hover, .btn:focus-visible { background: rgba(158, 42, 43, 0.22); border-color: var(--tsubaki); outline: none; }
 
-/* タイトル */
+/* タイトル：闇の中に、毛筆の題字が提灯の残り火に照らされて浮かぶ */
 #title {
   display: grid;
-  grid-template-columns: auto minmax(0, 22rem);
+  grid-template-columns: auto minmax(0, 24rem);
   align-items: center;
   justify-content: center;
-  gap: clamp(2rem, 7vw, 6rem);
+  gap: clamp(2.5rem, 8vw, 7rem);
   padding-block: 2rem;
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
-  background: radial-gradient(ellipse at 40% 50%, rgba(11, 9, 8, 0.55), rgba(11, 9, 8, 0.94) 70%);
+  background: #050303;
   transition: opacity 1.2s ease;
   z-index: 5;
+  overflow: hidden;
 }
+#title::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 30% 55% at 38% 52%, rgba(150, 26, 22, 0.32), rgba(150, 26, 22, 0) 70%),
+    radial-gradient(ellipse at 50% 50%, rgba(0, 0, 0, 0) 35%, rgba(0, 0, 0, 0.9) 100%);
+  animation: title-flicker 7s infinite;
+  pointer-events: none;
+}
+#title::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  opacity: 0.07;
+  pointer-events: none;
+}
+#title > * { position: relative; z-index: 1; }
 #title.out { opacity: 0; pointer-events: none; }
+@keyframes title-flicker {
+  0%, 100% { opacity: 1; }
+  45% { opacity: 0.85; }
+  47% { opacity: 0.55; }
+  48% { opacity: 0.9; }
+  70% { opacity: 0.8; }
+}
 .logo {
   writing-mode: vertical-rl;
-  font-size: clamp(2.4rem, min(8vw, 11vh), 5rem);
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  line-height: 1;
   margin: 0;
-  text-shadow: 0 0 24px rgba(227, 162, 90, 0.18);
+  display: flex;
+  flex-direction: column; /* 縦書きでは「列」が横に並ぶ。読みがなは題字の左の列へ */
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+.logo-main {
+  font-family: "Yuji Boku", var(--font);
+  font-weight: 400;
+  font-size: clamp(2.8rem, min(10vw, 12vh), 6.2rem);
+  line-height: 1;
+  white-space: nowrap;
+  letter-spacing: 0.08em;
+  color: #ece3d1;
+  text-shadow: 0 0 2px #000, 0 0 18px rgba(170, 28, 24, 0.55), 0 0 60px rgba(120, 12, 10, 0.35);
+  animation: ink-breathe 9s ease-in-out infinite;
+}
+.logo-no { color: #b8322c; text-shadow: 0 0 14px rgba(200, 30, 24, 0.6); }
+@keyframes ink-breathe {
+  0%, 100% { filter: none; opacity: 1; }
+  50% { filter: blur(0.4px); opacity: 0.92; }
 }
 .logo small {
-  display: block;
-  font-size: 0.24em;
+  font-size: clamp(0.72rem, 1.4vw, 0.9rem);
   font-weight: 400;
-  letter-spacing: 0.5em;
-  color: var(--washi-dim);
-  margin-inline-start: 0.9em;
+  letter-spacing: 0.6em;
+  color: #b9ab92;
+  padding-top: 0.4rem;
+  white-space: nowrap;
 }
-.side { display: grid; gap: 1.3rem; }
-.act-name { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.8rem; font-size: 1.05rem; letter-spacing: 0.2em; }
-.act-name b { font-weight: 600; border-bottom: 1px solid var(--tsubaki); padding-bottom: 0.2rem; }
-.act-name span { color: var(--washi-dim); font-size: 0.8rem; }
-#lapLabel { color: var(--lamp); }
-.lead { margin: 0; line-height: 2; font-size: 0.92rem; color: var(--washi-dim); max-width: 22em; }
-.keys { display: grid; grid-template-columns: auto 1fr; gap: 0.35rem 1rem; font-size: 0.8rem; color: var(--washi-dim); margin: 0; }
-.keys dt { color: var(--washi); letter-spacing: 0.05em; }
+.side { display: grid; gap: 1.25rem; }
+.act-name { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.8rem; font-size: 1.1rem; letter-spacing: 0.22em; color: #ece3d1; }
+.act-name b { font-weight: 600; border-bottom: 1px solid #b8322c; padding-bottom: 0.25rem; }
+.act-name span { color: #b9ab92; font-size: 0.85rem; }
+#lapLabel { color: #d06a5a; }
+.lead { margin: 0; line-height: 2.05; font-size: 1rem; color: #d8cebb; max-width: 23em; }
+.keys { display: grid; grid-template-columns: auto 1fr; gap: 0.4rem 1.1rem; font-size: 0.88rem; color: #bfb39c; margin: 0; padding: 0.9rem 1rem; border-left: 1px solid rgba(184, 50, 44, 0.45); background: rgba(255, 255, 255, 0.02); }
+.keys dt { color: #ece3d1; letter-spacing: 0.05em; }
 .keys dd { margin: 0; }
-.note { font-size: 0.78rem; color: var(--lamp); letter-spacing: 0.15em; margin: 0; }
-.seen-row { display: flex; align-items: center; gap: 0.7rem; font-size: 0.75rem; color: var(--washi-dim); letter-spacing: 0.15em; }
+.note { font-size: 0.85rem; color: #d79a5c; letter-spacing: 0.18em; margin: 0; }
+.seen-row { display: flex; align-items: center; gap: 0.7rem; font-size: 0.82rem; color: #bfb39c; letter-spacing: 0.15em; }
 .seen-marks { display: flex; gap: 0.4rem; }
-.seen-marks span { width: 1.6rem; height: 1.6rem; display: grid; place-items: center; border: 1px solid rgba(232, 223, 203, 0.2); font-size: 0.8rem; color: var(--washi-dim); }
-.seen-marks span.seen { border-color: var(--tsubaki); color: var(--washi); }
-#start { justify-self: start; font-size: 1rem; letter-spacing: 0.6em; padding: 0.8rem 1.4rem 0.8rem 2rem; }
+.seen-marks span { width: 1.7rem; height: 1.7rem; display: grid; place-items: center; border: 1px solid rgba(232, 223, 203, 0.25); font-size: 0.85rem; color: #8f846f; }
+.seen-marks span.seen { border-color: #b8322c; color: #ece3d1; background: rgba(184, 50, 44, 0.15); }
+#start {
+  justify-self: start;
+  font-size: 1.1rem;
+  letter-spacing: 0.7em;
+  padding: 0.9rem 1.6rem 0.9rem 2.3rem;
+  color: #ece3d1;
+  border-color: #b8322c;
+  background: rgba(184, 50, 44, 0.12);
+}
+#start:hover, #start:focus-visible { background: rgba(184, 50, 44, 0.3); box-shadow: 0 0 24px rgba(184, 50, 44, 0.35); }
 #start:disabled { opacity: 0.5; cursor: wait; }
 
 /* 導入文 */
@@ -236,7 +287,8 @@ button { font-family: var(--font); }
 .boot-sub { margin: 0; font-size: 0.85rem; letter-spacing: 0.2em; text-align: center; }
 
 @media (max-width: 640px) {
-  #title { grid-template-columns: 1fr; justify-items: center; gap: 1.6rem; align-content: center; }
+  #title { grid-template-columns: 1fr; justify-items: center; gap: 1.4rem; align-content: safe center; overflow-y: auto; }
+  .logo-main { font-size: clamp(2.4rem, min(10vw, 7vh), 3.4rem); }
   .side { justify-items: center; text-align: center; }
   .keys { display: none; }
   #start { justify-self: center; }
