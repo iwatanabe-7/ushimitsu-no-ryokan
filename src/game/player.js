@@ -126,7 +126,8 @@ export class Player {
 
   floorAt(x, z) {
     for (const f of this.ctx.floors) {
-      if (!this.onLevel(f) || !inRect(x, z, f.r)) continue;
+      if (!this.onLevel(f)) continue;
+      if (f.e ? ((x - f.e[0]) / f.e[2]) ** 2 + ((z - f.e[1]) / f.e[3]) ** 2 >= 1 : !inRect(x, z, f.r)) continue;
       return f.fn ? f.fn(x, z) : f.y;
     }
     return this.level === 1 ? 2.75 : 0;
@@ -158,7 +159,7 @@ export class Player {
     const moved = Math.hypot(p.x - bx, p.z - bz);
     // 階段の上半分にいれば二階、下半分なら一階として扱う
     for (const f of this.ctx.floors) {
-      if (f.stairs && inRect(p.x, p.z, f.r)) this.level = f.fn(p.x, p.z) > 1.37 ? 1 : 0;
+      if (f.stairs && f.r && inRect(p.x, p.z, f.r)) this.level = f.fn(p.x, p.z) > 1.37 ? 1 : 0;
     }
     // 段差（玄関の土間、庭、階段）はなめらかに上り下りする
     const target = this.floorAt(p.x, p.z);

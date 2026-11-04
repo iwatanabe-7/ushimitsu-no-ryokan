@@ -7,9 +7,9 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 export const QUALITY = {
-  high: { dpr: 1.75, shadow: 1024, bloom: true, msaa: 4 },
-  medium: { dpr: 1.25, shadow: 512, bloom: true, msaa: 2 },
-  low: { dpr: 0.9, shadow: 256, bloom: false, msaa: 0 },
+  high: { dpr: 1.5, shadow: 1024, bloom: true, msaa: 4, lights: 8, mirror: 512 },
+  medium: { dpr: 1.0, shadow: 512, bloom: true, msaa: 2, lights: 6, mirror: 384 },
+  low: { dpr: 0.75, shadow: 256, bloom: false, msaa: 0, lights: 4, mirror: 256 },
 };
 
 export function createRenderer(canvas, quality = 'high') {
@@ -90,6 +90,7 @@ export function createRenderer(canvas, quality = 'high') {
     get film() { return film; },
     setQuality: build,
     get shadowSize() { return q.shadow; },
+    get quality() { return q; },
     render() { composer.render(); },
   };
 }

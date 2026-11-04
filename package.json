@@ -1,6 +1,6 @@
 {
   "name": "ushimitsu-no-yado",
-  "productName": "丑三つの宿",
+  "productName": "丑三つの旅館",
   "version": "0.2.0",
   "description": "丑三つシリーズ第2作。一人称の3D脱出ホラー",
   "private": true,
@@ -28,7 +28,7 @@
   },
   "build": {
     "appId": "com.iwatanabe7.ushimitsunoyado",
-    "productName": "丑三つの宿",
+    "productName": "丑三つの旅館",
     "directories": {
       "output": "release"
     },

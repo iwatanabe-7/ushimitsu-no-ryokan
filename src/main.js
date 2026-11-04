@@ -1,6 +1,7 @@
-// 丑三つの宿 — 宿の中（設計書の Inn シーン）。GameManager に相当する進行管理もここに置く
+// 丑三つの旅館 — 宿の中（設計書の Inn シーン）。GameManager に相当する進行管理もここに置く
 import * as THREE from 'three';
-import { createRenderer } from './core/renderer.js';
+import { createRenderer, QUALITY } from './core/renderer.js';
+import { mergeStatic } from './core/merge.js';
 import { InnAudio } from './core/audio.js';
 import { setRoot, initMaterials } from './world/kit.js';
 import { EYE, R, CORRIDOR } from './world/layout.js';
@@ -71,8 +72,10 @@ shadowLight.shadow.mapSize.setScalar(Math.max(G.shadowSize, 1024));
 shadowLight.shadow.bias = -0.003;
 shadowLight.shadow.normalBias = 0.02;
 shadowLight.shadow.camera.near = 0.08;
+// 影は灯りが替わったときや物が動いたときだけ描き直す（毎フレーム6方向ぶん描くのが一番重い）
+shadowLight.shadow.autoUpdate = false;
 scene.add(shadowLight);
-const LIGHT_POOL = 9;
+const LIGHT_POOL = 8;
 const pool = [];
 for (let i = 0; i < LIGHT_POOL; i++) {
   const l = new THREE.PointLight(0xffffff, 0, 6, 2);
@@ -137,6 +140,25 @@ ctx.block.push({ c: [5.7, 3.28, 0.22 + R], when: () => okamiArrived });
 if (lap2) {
   W.kikyo.letter.visible = true;
   W.choba.setFigure(false);
+}
+
+// 動かない部品をまとめて描画を軽くする。動く物・消える物・揺れる物はそのまま残す
+{
+  const dyn = new Set([okami, okamiShadow, mirrorFigure, okamiHit]);
+  const add = (...objs) => objs.forEach((o) => o && dyn.add(o));
+  const T = W.tsubaki, S = W.shobu, K = W.kikyo, Gk = W.genkan, Wt = W.watari, B = W.bath;
+  add(T.door.left, T.door.right, T.oshS, T.card, T.leakStrip, T.leakGlow);
+  add(S.door.left, S.door.right, S.mirror, S.shobuCard);
+  add(K.door.left, K.door.right, K.card, K.letter, K.doll, ...K.slotCards);
+  add(...Gk.panels, ...Gk.slots);
+  add(Wt.hiromaDoor.left, Wt.hiromaDoor.right, Wt.pond);
+  add(B.door, B.card, ...B.leaves);
+  add(W.hiroma.key);
+  for (const s of ctx.sway) add(s.mesh);
+  for (const L of ctx.lamps) add(L.flame);
+  for (const src of ctx.tickSources) add(src.pendulum);
+  const r = mergeStatic(scene, dyn);
+  console.info(`静的な部品 ${r.before} 個を ${r.after} 個にまとめました`);
 }
 
 // ---------------------------------------------------------------- UI と入力
@@ -604,7 +626,7 @@ function endingB(name) {
 }
 function endingC() {
   state.phase = 'scene';
-  fadeOut(3, () => finish('C', '終　真相', MSG.endC, '丑三つの宿をすべて見届けました。'));
+  fadeOut(3, () => finish('C', '終　真相', MSG.endC, '丑三つの旅館をすべて見届けました。'));
 }
 
 function renderSeen(el) {
@@ -645,14 +667,48 @@ sens.addEventListener('input', () => {
   player.sensitivity = +sens.value;
   writeSave(save);
 });
-qual.addEventListener('change', () => {
-  save.settings.quality = qual.value;
-  G.setQuality(qual.value);
+function applyQuality(name) {
+  G.setQuality(name);
   shadowLight.shadow.mapSize.setScalar(Math.max(G.shadowSize, 1024));
   shadowLight.shadow.map?.dispose();
   shadowLight.shadow.map = null;
+  shadowLight.shadow.needsUpdate = true;
+  pool.forEach((l, i) => (l.visible = i < G.quality.lights));
+  for (const m of [W.shobu.mirror, W.watari.pond]) m.getRenderTarget().setSize(G.quality.mirror, G.quality.mirror);
+}
+qual.addEventListener('change', () => {
+  save.settings.quality = qual.value;
+  save.settings.qualityAuto = false; // 自分で選んだら自動調整はしない
+  applyQuality(qual.value);
   writeSave(save);
 });
+applyQuality(save.settings.quality);
+
+// 画質の自動調整：遊び始めの数秒の速さを測り、重ければ一段ずつ下げる
+const fpsProbe = { t0: 0, frames: 0 };
+function autoQuality(t) {
+  if (save.settings.qualityAuto === false || state.phase !== 'play') return;
+  if (!fpsProbe.t0) {
+    fpsProbe.t0 = t;
+    fpsProbe.frames = 0;
+    return;
+  }
+  fpsProbe.frames++;
+  const span = t - fpsProbe.t0;
+  if (span < 3) return;
+  const fps = fpsProbe.frames / span;
+  fpsProbe.t0 = t;
+  fpsProbe.frames = 0;
+  const order = ['high', 'medium', 'low'];
+  const i = order.indexOf(save.settings.quality);
+  if (fps < 40 && i < 2) {
+    save.settings.quality = order[i + 1];
+    qual.value = save.settings.quality;
+    applyQuality(save.settings.quality);
+    writeSave(save);
+    ui.subtitle(`動きが重いので、画質を「${['高', '中', '低'][i + 1]}」にしました（Esc の設定で変えられます）`, 3600);
+  }
+}
 function toggleFullscreen() {
   try {
     if (document.fullscreenElement) document.exitFullscreen();
@@ -761,6 +817,8 @@ function visibleZones(zone) {
 }
 
 let shadowLamp = null;
+let lastShadowLamp = undefined;
+let lastShadowAt = 0;
 let lastTick = -1;
 let lastDrawn = -1;
 let lastZone = 'tsubaki';
@@ -820,6 +878,12 @@ function frame() {
     light.intensity = L.now;
     light.distance = L.distance ?? 6;
   });
+  const animating = ['doorAnim', 'oshiireAnim', 'shobuAnim', 'kikyoAnim', 'hiromaAnim', 'yudonoAnim'].some((k) => state[k] > 0 && state[k] < 1);
+  if (best !== lastShadowLamp || animating || okami.position.y > -10 || t - lastShadowAt > 1.5) {
+    shadowLight.shadow.needsUpdate = true;
+    lastShadowLamp = best;
+    lastShadowAt = t;
+  }
   if (best) {
     shadowLight.position.copy(best.pos);
     shadowLight.color.setHex(best.color);
@@ -858,7 +922,7 @@ function frame() {
   // 屋外は見えているときだけ月明かりと池の映り込みを描く
   const outside = vis.has('garden') || vis.has('watari') || vis.has('roten');
   W.watari.moon.intensity = outside ? 150 : 0;
-  W.watari.pond.visible = vis.has('garden') || vis.has('watari');
+  W.watari.pond.visible = zone === 'garden' || (zone === 'watari' && player.pos.x > 12 && player.pos.x < 16.5);
 
   // 時計
   const gt = gameTime(t);
@@ -948,6 +1012,7 @@ function frame() {
     audio.creak(new THREE.Vector3(x, 1.0, 2.7), 0.18, 0.8);
   }
 
+  autoQuality(t);
   updateFocus();
   audio.updateListener(camera);
   G.render();
@@ -975,7 +1040,8 @@ function footsteps(moved, zone, dt) {
   if (stepAcc > 0.62) {
     stepAcc = 0;
     if (['tsubaki', 'shobu', 'kikyo', 'hiroma', 'matsu', 'take'].includes(zone)) audio.stepTatami();
-    else if (zone === 'garden') audio.burst(null, { type: 'highpass', freq: 1800, q: 0.6, dur: 0.18, gain: 0.3, attack: 0.01 });
+    else if (zone === 'garden') audio.burst(null, { type: 'highpass', freq: 1800, q: 0.6, dur: 0.16, gain: 0.08, attack: 0.01 });
+    else if (zone === 'roten' && player.floorY < -0.3) audio.burst(W.bath.poolPos.clone().set(p.x, -0.2, p.z), { type: 'bandpass', freq: 500, q: 0.8, dur: 0.35, gain: 0.12, attack: 0.04 });
     else if (zone === 'roten' || player.floorY < -0.2) audio.burst(null, { type: 'lowpass', freq: 900, q: 0.7, dur: 0.12, gain: 0.25 });
     else audio.stepWood(new THREE.Vector3(p.x, 0, p.z), 0.28);
   }
@@ -1023,7 +1089,7 @@ $('start').textContent = 'はじめる';
 
 // 動作確認用のフック
 window.__inn = {
-  state, player, ui, act, W, save,
+  state, player, ui, act, W, save, G,
   focus: () => focus,
   debugMirror(on) {
     const f = new THREE.Vector3(-Math.sin(player.yaw), 0, -Math.cos(player.yaw));

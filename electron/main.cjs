@@ -9,7 +9,7 @@ function createWindow() {
     minWidth: 960,
     minHeight: 540,
     backgroundColor: '#0b0908',
-    title: '丑三つの宿',
+    title: '丑三つの旅館',
     autoHideMenuBar: true,
     show: false,
     webPreferences: {

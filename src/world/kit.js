@@ -9,8 +9,13 @@ export function setRoot(scene) {
 
 export const std = (o) => new THREE.MeshStandardMaterial(o);
 
+// 壁の材質は大きさを丸めて使い回す（同じ材質の壁はまとめて一度に描ける）
+const wallCache = new Map();
 export function wallMat(w, h, tint = 0xb8a68a) {
-  return std({ map: T.wallMap([Math.max(w, 0.3) / 1.3, Math.max(h, 0.3) / 1.3]), roughness: 0.96, color: tint });
+  const q = (v) => Math.max(1, Math.round(v / 0.9));
+  const key = `${q(w)}x${q(h)}|${tint}`;
+  if (!wallCache.has(key)) wallCache.set(key, std({ map: T.wallMap([(q(w) * 0.9) / 1.3, (q(h) * 0.9) / 1.3]), roughness: 0.96, color: tint }));
+  return wallCache.get(key);
 }
 
 // 共有の材質
@@ -53,14 +58,16 @@ export function post(x, z, h = 2.4, mat = M.pillar) {
 }
 
 // 畳を敷く。mats は [x0, x1, z0, z1] の並び
+const tatamiCache = new Map();
 export function tatami(mats, tint = 0.62) {
   mats.forEach(([x0, x1, z0, z1], i) => {
     const vertical = x1 - x0 < z1 - z0;
-    const t = M.tatami[i % 3];
-    const m = box(0.896, 0.06, 1.796, std({
-      map: t, bumpMap: t, bumpScale: 1.2, roughness: 0.82,
-      color: new THREE.Color().setHSL(0.13, 0.15, tint + (i % 4) * 0.03),
-    }), (x0 + x1) / 2, -0.03, (z0 + z1) / 2, { cast: false });
+    const key = `${i % 3}|${i % 4}|${tint}`;
+    if (!tatamiCache.has(key)) {
+      const t = M.tatami[i % 3];
+      tatamiCache.set(key, std({ map: t, bumpMap: t, bumpScale: 1.2, roughness: 0.82, color: new THREE.Color().setHSL(0.13, 0.15, tint + (i % 4) * 0.03) }));
+    }
+    const m = box(0.896, 0.06, 1.796, tatamiCache.get(key), (x0 + x1) / 2, -0.03, (z0 + z1) / 2, { cast: false });
     if (!vertical) m.rotation.y = Math.PI / 2;
   });
 }

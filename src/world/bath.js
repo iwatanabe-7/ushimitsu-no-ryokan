@@ -48,7 +48,7 @@ export function buildBath(ctx) {
   }
   // 一つだけ、畳んだ浴衣が入っている籠
   box(0.3, 0.06, 0.4, std({ map: T.yukataTexture(), roughness: 0.95 }), D.x1 - 0.25, 0.93, 2.4);
-  box(0.4, 0.42, 1.8, shelf, D.x0 + 0.25, 0.21, 2.6); // 腰掛け
+  box(1.8, 0.42, 0.4, shelf, 19.9, 0.21, D.z1 - 0.25); // 腰掛け（南の壁ぎわ。入口をふさがない）
   const a = andon(D.x0 + 0.35, D.z0 + 0.35);
   ctx.addLamp({ pos: new THREE.Vector3(D.x0 + 0.35, 0.5, D.z0 + 0.35), color: 0xff9447, base: 2.6, paper: a.paper.material, paperBase: 1.3, kind: 'andon', zone: 'datsui' });
 
@@ -128,7 +128,7 @@ export function buildBath(ctx) {
     yudonoDoor: hitBox(hits, 'yudonoDoor', 0.1, 1.8, d1 - d0, D.x0 - 0.08, 0.9, (d0 + d1) / 2),
     kago: hitBox(hits, 'kago', 0.5, 1.6, 2.8, D.x1 - 0.25, 0.8, 2.8),
     bathCard: hitBox(hits, 'bathCard', 0.6, 0.3, 0.6, CARD.x, -0.1, CARD.z),
-    pool: hitBox(hits, 'pool', rx * 1.6, 0.3, rz * 1.6, px + 0.3, -0.15, pz),
+    pool: hitBox(hits, 'pool', 0.8, 0.2, 0.8, px + 0.9, -0.15, pz - 0.5),
     kakehi: hitBox(hits, 'kakehi', 1.2, 0.3, 0.3, px + rx + 0.5, 0.7, pz - 0.4),
   };
 
@@ -137,10 +137,11 @@ export function buildBath(ctx) {
   ctx.walk.push({ r: [o0 + R, o1 - R, D.z0 - 0.5, D.z0 + 0.5] });
   ctx.walk.push({ r: [Rt.x0 + R, Rt.x1 - R, Rt.z0 + R, Rt.z1 - R] });
   ctx.block.push({ r: [D.x1 - 0.45 - R, D.x1, 1.4 - R, 4.2 + R] });
-  ctx.block.push({ r: [D.x0, D.x0 + 0.45 + R, 1.7 - R, 3.5 + R] });
+  ctx.block.push({ r: [19.0 - R, 20.8 + R, D.z1 - 0.45 - R, D.z1] });
   ctx.block.push({ c: [D.x0 + 0.35, D.z0 + 0.35, 0.17 + R] });
-  ctx.block.push({ e: [px, pz, rx + 0.25, rz + 0.25] });
   ctx.block.push({ c: [Rt.x0 + 0.5, Rt.z1 - 0.5, 0.05 + R] });
+  // 湯船の中は腰まで浸かる深さ。縁の石はまたいで入る
+  ctx.floors.push({ e: [px, pz, rx - 0.05, rz - 0.05], y: -0.55 });
   ctx.floors.push({ r: [Rt.x0, Rt.x1, Rt.z0, Rt.z1], y: -0.05 });
   ctx.zones.push({ name: 'datsui', r: [D.x0 - 0.06, D.x1, D.z0, D.z1] });
   ctx.zones.push({ name: 'roten', r: [Rt.x0, Rt.x1, Rt.z0, D.z0 - 0.06] });
