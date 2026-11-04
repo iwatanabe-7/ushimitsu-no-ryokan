@@ -971,10 +971,13 @@ function frame() {
       okamiShadow.visible = true;
       okamiHit.userData.enabled = true;
       audio.creak(OKAMI_SPOT, 0.25, 1.0);
-      // 暗い廊下で、女将の影の傍の提灯だけがふたたび灯る
+      // 宿じゅうの明かりが消え、女将の影の傍の提灯だけがかすかに灯る
       const lan = W.corridor.lanterns[2];
-      lan.lamp.level = 1.2;
-      audio.snuff(lan.lamp.pos);
+      for (const L of ctx.lamps) L.level = 0;
+      lan.lamp.level = 0.45;
+      W.choba.shoji.material.emissiveIntensity = 0;
+      audio.snuff(player.pos.clone());
+      audio.drone(4, 0.08);
     }
   }
 

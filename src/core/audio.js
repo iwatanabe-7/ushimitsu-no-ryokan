@@ -1,3 +1,5 @@
+const CREAK_ENABLED = false;
+
 // Web Audio で音をすべて合成する。ヘッドホン前提で、音源は 3D 定位させる。
 export class InnAudio {
   constructor() {
@@ -189,9 +191,9 @@ export class InnAudio {
     if (Math.random() < 0.3) this.creak(pos, gain * 0.25, 0.35);
   }
 
-  // きしみ
+  // きしみ（鳴らさない設定にしている。戻すときは CREAK_ENABLED を true にする）
   creak(pos, gain = 0.25, dur = 0.7) {
-    if (!this.ready) return;
+    if (!CREAK_ENABLED || !this.ready) return;
     const ctx = this.ctx;
     const t = ctx.currentTime;
     const o = ctx.createOscillator();

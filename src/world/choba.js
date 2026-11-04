@@ -140,5 +140,5 @@ export function buildChoba(ctx) {
   ctx.walk.push({ r: [B.open[0] + R, B.open[1] - R, 3.2, 3.95] });
   ctx.walk.push({ r: [B.x0 + R, B.x1 - R, 3.84, PZ - R] });
   ctx.zones.push({ name: 'choba', r: [B.x0, B.x1, B.z0 - WT + 0.06, B.z1] });
-  return { H, setFigure, pillarClockPos, ledgerPos: new THREE.Vector3(0.3, 0.7, 5.12) };
+  return { H, setFigure, shoji, pillarClockPos, ledgerPos: new THREE.Vector3(0.3, 0.7, 5.12) };
 }
