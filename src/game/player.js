@@ -109,6 +109,7 @@ export class Player {
   walkable(x, z) {
     const { walk, block } = this.ctx;
     for (const b of block) {
+      if (b.when && !b.when()) continue;
       if (b.r && inRect(x, z, b.r)) return false;
       if (b.c && Math.hypot(x - b.c[0], z - b.c[1]) < b.c[2]) return false;
     }

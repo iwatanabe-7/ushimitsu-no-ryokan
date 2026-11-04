@@ -82,7 +82,7 @@ okami.position.set(0, -50, 0); // 灯りの数を変えないよう、使わな�
 const okamiFace = okami.userData.faceLight;
 scene.add(okami);
 function showOkami(on) {
-  okamiFace.intensity = on ? 1.6 : 0;
+  okamiFace.intensity = on ? 0.7 : 0;
   if (!on) okami.position.y = -50;
 }
 const okamiShadow = buildOkami({ shadowOnly: true });
@@ -95,14 +95,15 @@ okamiHit.userData = { id: 'okami', enabled: false };
 okamiHit.position.set(0.2, 0.8, 3.15);
 scene.add(okamiHit);
 ctx.hits.push(okamiHit);
+// 女将の影は最初はいない。二周目で娘の手紙を手に入れたあと、帳場の前に現れる
+okamiShadow.position.set(0.2, 0, 3.15);
+okamiShadow.rotation.y = 0;
+const OKAMI_SPOT = new THREE.Vector3(0.2, 1.0, 3.15);
+let okamiArrived = false;
+ctx.block.push({ c: [0.2, 3.15, 0.25 + R], when: () => okamiArrived });
 if (lap2) {
   W.kikyo.letter.visible = true;
   W.choba.setFigure(false);
-  okamiShadow.position.set(0.2, 0, 3.15);
-  okamiShadow.rotation.y = 0;
-  okamiShadow.visible = true;
-  okamiHit.userData.enabled = true;
-  ctx.block.push({ c: [0.2, 3.15, 0.25 + R] });
 }
 
 // ---------------------------------------------------------------- UI と入力
@@ -734,12 +735,27 @@ function frame() {
     else s.mesh.rotation.x = Math.sin(t * 0.8 + s.seed) * 0.05;
   }
 
+  okami.userData.update(t);
+  okamiShadow.userData.update(t);
+
   // 鏡は菖蒲の間にいるときだけ描く
   W.shobu.mirror.visible = zone === 'shobu';
 
-  // 人形は、見ていないうちにこちらを向く
   projScreen.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
   frustum.setFromProjectionMatrix(projScreen);
+
+  // 二周目：手紙を持ったら、見ていないうちに女将の影が帳場の前に立つ
+  if (lap2 && state.hasLetter && !okamiArrived && !ui.talking) {
+    const near = player.pos.distanceTo(OKAMI_SPOT) < 0.9;
+    if (!near && !frustum.containsPoint(OKAMI_SPOT)) {
+      okamiArrived = true;
+      okamiShadow.visible = true;
+      okamiHit.userData.enabled = true;
+      audio.creak(OKAMI_SPOT, 0.25, 1.0);
+    }
+  }
+
+  // 人形は、見ていないうちにこちらを向く
   const doll = W.kikyo.doll;
   if (!frustum.containsPoint(doll.position.clone().setY(0.25))) {
     doll.rotation.y = Math.atan2(player.pos.x - doll.position.x, player.pos.z - doll.position.z);
@@ -836,6 +852,11 @@ $('start').textContent = 'はじめる';
 window.__inn = {
   state, player, ui, act, W, save,
   focus: () => focus,
+  debugOkamiAt(x, y, z, ry) {
+    okami.position.set(x, y, z);
+    okami.rotation.y = ry;
+    showOkami(true);
+  },
   debugOkamiBehind() {
     const f = new THREE.Vector3(-Math.sin(player.yaw), 0, -Math.cos(player.yaw));
     const side = new THREE.Vector3(-f.z, 0, f.x);
