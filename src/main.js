@@ -497,21 +497,52 @@ function clapScare() {
 
 // 驚かせ2：最後の札（桔梗の札）を取ると、廊下の提灯がすべて消えて、襖の外を足音が通り過ぎる
 function lanternScare() {
+  // ここから足音が菖蒲の間に入るまで、操作を止めて映画のように見せる
   state.phase = 'scene';
+  releasePointer();
+  ui.cinema(true);
   const lan = W.corridor.lanterns;
   [3, 2, 1, 0].forEach((idx, k) => {
     setTimeout(() => {
       lan[idx].lamp.level = 0;
       lan[idx].paper.material.emissiveIntensity = 0;
       audio.snuff(lan[idx].lamp.pos);
-    }, 400 + k * 700);
+    }, 600 + k * 700);
   });
-  for (let i = 0; i < 7; i++) setTimeout(() => audio.stepWood(new THREE.Vector3(6.4 + i * 0.75, 0, 2.6), 0.5), 1700 + i * 600);
+  setTimeout(() => ui.caption(MSG.kikyoScare[0]), 3200);
+  const end = walkingFootsteps(4400);
+  setTimeout(() => ui.caption(MSG.walkerFar), 4600);
+  setTimeout(() => ui.caption(MSG.walkerNear), end - 4200);
+  setTimeout(() => ui.caption(MSG.walkerIn), end + 1400);
   setTimeout(() => {
+    ui.cinema(false);
     state.phase = 'play';
     state.lanternsOut = true;
-    say(MSG.kikyoScare);
-  }, 1700 + 7 * 600);
+    player.requestLock();
+  }, end + 4200);
+}
+
+// 大広間の奥の舞台から、誰かが歩き出す。広間を抜け、渡り廊下から廊下へ。
+// 三つ並んだ客室の真ん中、菖蒲の間の前で止まり、襖が開く。足音が終わる時刻（ms）を返す
+function walkingFootsteps(start) {
+  const route = [[14.3, 9.4], [14.5, 4.4], [14.6, 2.7], [10.6, 2.7], [4.64, 2.6]];
+  const pts = [];
+  for (let i = 0; i < route.length - 1; i++) {
+    const [ax, az] = route[i], [bx, bz] = route[i + 1];
+    const n = Math.max(1, Math.round(Math.hypot(bx - ax, bz - az) / 0.72));
+    for (let k = 0; k < n; k++) pts.push([ax + ((bx - ax) * k) / n, az + ((bz - az) * k) / n]);
+  }
+  pts.push(route[route.length - 1]);
+  pts.forEach(([x, z], i) => {
+    setTimeout(() => {
+      const pos = new THREE.Vector3(x, 0, z);
+      if (z > 3.6) audio.burst(pos, { type: 'lowpass', freq: 650, q: 0.6, dur: 0.18, gain: 0.5, attack: 0.03 }); // 畳
+      else audio.stepWood(pos, 0.55);
+    }, start + i * 520);
+  });
+  const end = start + pts.length * 520;
+  setTimeout(() => audio.slide(W.shobu.doorPos, 1.0, 0.3), end + 700);
+  return end;
 }
 
 // 驚かせ3：花札錠が開く直前、灯りが細り、廊下側からの明かりで背後に立つ女将の影が壁に伸びる。

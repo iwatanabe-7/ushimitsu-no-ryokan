@@ -24,39 +24,61 @@ export class UI {
     return !this.el.msg.hidden;
   }
 
+  // 会話で動きが止まる場面は、導入のように上下に黒い帯を入れ、文字を一行ずつ浮かべる
   say(lines, done) {
     this.queue = [...lines];
     this.done = done || null;
     this.el.msg.hidden = false;
+    this.el.msg.classList.remove('caption');
+    document.body.classList.add('cinema');
     this.next();
   }
 
   next() {
+    if (this.locked) return;
+    const t = this.el.msgText;
     if (this.typing) {
-      clearInterval(this.typing.id);
-      this.el.msgText.textContent = this.typing.full;
+      // 浮かび上がる途中なら、すぐに表示しきる
+      clearTimeout(this.typing.id);
+      t.classList.add('now', 'in');
       this.typing = null;
       return;
     }
     if (!this.queue.length) {
       this.el.msg.hidden = true;
+      document.body.classList.remove('cinema');
+      t.classList.remove('in');
       const d = this.done;
       this.done = null;
       d && d();
       return;
     }
     const full = this.queue.shift();
-    let i = 0;
-    this.el.msgText.textContent = '';
-    const id = setInterval(() => {
-      i++;
-      this.el.msgText.textContent = full.slice(0, i);
-      if (i >= full.length) {
-        clearInterval(id);
-        this.typing = null;
-      }
-    }, 36);
-    this.typing = { id, full };
+    t.classList.remove('in', 'now');
+    t.textContent = full;
+    void t.offsetWidth;
+    t.classList.add('in');
+    this.typing = { id: setTimeout(() => (this.typing = null), 550), full };
+  }
+
+  // 演出の場面：操作を止めて黒い帯を出す。caption で帯の中に一行ずつ浮かべる（E では送れない）
+  cinema(on) {
+    this.locked = on;
+    document.body.classList.toggle('cinema', on);
+    if (!on) {
+      this.el.msg.hidden = true;
+      this.el.msgText.classList.remove('in');
+    }
+  }
+
+  caption(text) {
+    const t = this.el.msgText;
+    this.el.msg.hidden = false;
+    this.el.msg.classList.add('caption');
+    t.classList.remove('in', 'now');
+    t.textContent = text;
+    void t.offsetWidth;
+    t.classList.add('in');
   }
 
   // 字幕（声など、送り操作のいらない一行）
