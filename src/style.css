@@ -231,8 +231,22 @@ button { font-family: var(--font); }
 #stick div { position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; margin: -20px; border-radius: 50%; background: rgba(232, 223, 203, 0.25); }
 #act { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(96px + env(safe-area-inset-bottom, 0px)); width: 72px; height: 72px; border-radius: 50%; border: 1px solid rgba(232, 223, 203, 0.5); background: rgba(11, 9, 8, 0.5); color: var(--washi); font: 600 0.85rem var(--font); letter-spacing: 0.1em; pointer-events: auto; }
 
-#boot { display: grid; place-items: center; z-index: 10; background: var(--ink); color: var(--washi-dim); font-size: 0.85rem; letter-spacing: 0.3em; }
-#boot p { margin: 0; }
+/* 読み込み中：針が午前二時へ向かう時計 */
+#boot { display: grid; place-items: center; z-index: 10; background: var(--ink); color: var(--washi-dim); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.boot-box { display: grid; gap: 1rem; justify-items: center; text-align: center; }
+.boot-clock { width: clamp(5rem, 16vmin, 7.5rem); height: auto; }
+.boot-clock .face { fill: none; stroke: rgba(232, 223, 203, 0.25); stroke-width: 1.5; }
+.boot-clock .ticks line { stroke: rgba(232, 223, 203, 0.35); stroke-width: 1.5; }
+.boot-clock .ticks .two { stroke: var(--tsubaki); stroke-width: 2.5; }
+.boot-clock .hour, .boot-clock .minute { stroke: var(--washi); stroke-linecap: round; transform-origin: 60px 60px; }
+.boot-clock .hour { stroke-width: 4; animation: boot-hour 4s cubic-bezier(.4, 0, .2, 1) infinite; }
+.boot-clock .minute { stroke-width: 2; animation: boot-minute 4s cubic-bezier(.4, 0, .2, 1) infinite; }
+.boot-clock .pin { fill: var(--tsubaki); }
+@keyframes boot-hour { 0% { transform: rotate(30deg); } 80%, 100% { transform: rotate(60deg); } }
+@keyframes boot-minute { 0% { transform: rotate(0deg); } 80%, 100% { transform: rotate(360deg); } }
+.boot-line { margin: 0; font-size: clamp(1rem, 2.4vw, 1.25rem); letter-spacing: 0.35em; color: var(--washi); }
+.boot-sub { margin: 0; font-size: 0.78rem; letter-spacing: 0.25em; animation: boot-breathe 2.4s ease-in-out infinite; }
+@keyframes boot-breathe { 50% { opacity: 0.45; } }
 
 @media (max-width: 640px) {
   #title { grid-template-columns: 1fr; justify-items: center; gap: 1.6rem; align-content: center; }
