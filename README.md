@@ -3,48 +3,89 @@
 丑三つシリーズ第2作。山あいの古い旅館を舞台にした、一人称の3D脱出ホラーです。
 前作は「[丑三つの間](https://github.com/iwatanabe-7/ushimitsu-no-ma-3d)」。
 
-このリポジトリは、設計書をもとに Three.js でブラウザ上に作っている版です。
-いまは最初の1シーン「椿の間」だけが遊べます。
+Three.js で作り、Vite で **Web 版** と **Electron 版（Windows / Mac / Linux のアプリ）** の両方を出力します。
+画像や音声のファイルは使わず、テクスチャも効果音もすべてコードで生成しています。
 
-## 遊び方
+## 必要なもの
 
-ビルドは不要です。静的ファイルとして配信して `index.html` を開きます。
+- Node.js 20 以上
 
 ```sh
-python3 -m http.server 8000
-# http://localhost:8000 を開く
+npm install
 ```
 
-ES モジュールを読み込むので、`index.html` をファイルとして直接開くと動きません。
-Three.js（0.160.0）は jsDelivr から読み込みます。
+## 開発
+
+```sh
+npm run dev           # ブラウザで開発（http://localhost:5173）
+npm run electron:dev  # Electron の窓で開発（コードの変更がすぐ反映される）
+```
+
+## ビルド
+
+| コマンド | 出力 | 用途 |
+|---|---|---|
+| `npm run build` | `dist/` | Web 版。フォントを同梱するので、どこに置いても同じ見た目になる |
+| `npm run build:cdn` | `dist-cdn/` | Web 版（ファイル数を減らした版）。フォントは Google Fonts から読む |
+| `npm run electron` | — | `dist/` を作って Electron で起動する |
+| `npm run dist:win` | `release/` | Windows 用インストーラー（NSIS）と展開済みフォルダ |
+| `npm run dist:mac` | `release/` | Mac 用 dmg（Mac 上でビルドする） |
+| `npm run dist:linux` | `release/` | Linux 用 AppImage と展開済みフォルダ |
+
+Web 版は `dist/` の中身をそのまま静的サイトとして置けば動きます（itch.io などにも zip で上げられます）。
+`index.html` をファイルとして直接開くと ES モジュールが読み込めないので、確認は `npm run preview` で行います。
 
 ## 操作
 
 | 操作 | キー |
 |---|---|
-| 移動 | W / A / S / D |
+| 移動 | W / A / S / D（Shift で少し速く） |
 | 視点 | マウス |
 | 調べる・文章を送る | E |
-| 一時停止 | Esc |
+| 花札錠：札入れを選ぶ | ← / → |
+| 花札錠：札を替える | ↑ / ↓ |
+| 花札錠：試す | Enter |
+| 一時停止・設定（音量、視点の速さ、画質、全画面） | Esc |
+| 全画面 | F11 |
 
 スマートフォンでは、画面の左半分をドラッグして移動、右半分をドラッグして視点、「調べる」ボタンで調べます。
 ヘッドホン推奨です（足音や時計の音を立体的に鳴らしています）。
 
-## シーン1「椿の間」の流れ
+## ゲームの流れ（一周目）
 
-1. 布団で目を覚ます。時計は午前2時
-2. 押入れを開け、浴衣の袂から「廊下の鍵」を手に入れる
-3. 床の間から「椿の札」を手に入れる
-4. 鍵で襖を開け、廊下へ出る
+1. **椿の間**：目を覚ますと午前2時。押入れの浴衣から「廊下の鍵」、床の間から「椿の札」
+2. **帳場**：宿帳で花の印がついた客の到着順が分かる。記帳するとエンディングB
+3. **菖蒲の間**：前の客の日記を読む。鏡台を調べると鏡に女将が映り（驚かせ1）、「菖蒲の札」
+4. **桔梗の間**：札入れに椿と菖蒲の札をはめると開く。娘の文机から「桔梗の札」。廊下の提灯が消える（驚かせ2）
+5. **玄関**：花札錠に宿帳の到着順（桔梗 → 菖蒲 → 椿）で札をはめる。開く直前、背後に女将（驚かせ3）。エンディングA
+
+エンディングAを見ると二周目になり、宿帳・日記・桔梗の間・廊下が少し変わります。
+二周目で「娘の手紙」を女将の影に渡すとエンディングC（真相）です。
+
+周回数と見たエンディング、設定は保存されます（Web 版はブラウザ、Electron 版はアプリのデータフォルダ）。
 
 ## ファイル構成
 
-| ファイル | 役割 |
+| 場所 | 内容 |
 |---|---|
-| `index.html` | 画面（タイトル・文章・持ち物）と起動 |
-| `src/main.js` | シーン、照明、移動と当たり判定、調べる処理、進行（設計書の GameManager / PlayerController / Interactable / InnClock / FootstepEcho に相当） |
-| `src/textures.js` | 畳・土壁・襖・障子・掛け軸・花札などを canvas で描くテクスチャ |
-| `src/audio.js` | Web Audio で合成する環境音と効果音（風、時計、足音、きしみ、襖） |
-| `src/messages.js` | 調べたときの文章（設計書の ScriptableObject に相当） |
+| `index.html` | 画面（タイトル、文章、宿帳、花札錠、一時停止、終幕） |
+| `src/boot.js` | 起動。フォントを読み込んでから本編を読み込む |
+| `src/main.js` | 進行管理（設計書の GameManager、ScareTrigger、SecondLapSwitch、InnClock、FootstepEcho に相当） |
+| `src/game/player.js` | 移動・視点・当たり判定（PlayerController） |
+| `src/game/ui.js` | 文章、持ち物、宿帳（LedgerUI）、花札錠（HanafudaLock の画面） |
+| `src/game/messages.js` | 調べたときの文章と宿帳の記録（設計書の ScriptableObject に相当） |
+| `src/game/save.js` | 周回数・エンディング・設定の保存（PlayerPrefs に相当） |
+| `src/world/layout.js` | 宿の間取り（寸法） |
+| `src/world/*.js` | 部屋ごとの組み立て（椿の間、廊下、帳場、菖蒲の間、桔梗の間、玄関、女将） |
+| `src/world/kit.js` | 壁・畳・襖・行灯・提灯などの共通部品 |
+| `src/core/textures.js` | 畳・土壁・襖・障子・掛け軸・花札などを canvas で描くテクスチャ |
+| `src/core/audio.js` | Web Audio で合成する環境音と効果音 |
+| `src/core/renderer.js` | 描画とポストエフェクト、画質設定 |
+| `electron/main.cjs` | Electron 版の窓 |
 
-画像や音声のファイルは使わず、すべてコードで生成しています。
+## Steam で配布するときに残っている作業
+
+- Steamworks に登録し、[steamworks.js](https://github.com/ceifa/steamworks.js) で実績やクラウドセーブをつなぐ
+- ゲームパッド操作（Steam Deck 対応に必要）
+- アプリのアイコン（`build/icon.png` などを用意して electron-builder に渡す）
+- Windows / Mac 向けのコード署名
