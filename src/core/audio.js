@@ -157,8 +157,8 @@ export class InnAudio {
   }
 
   tick(pos, tock) {
-    this.burst(pos, { type: 'highpass', freq: tock ? 2600 : 3400, q: 0.8, dur: 0.03, gain: 0.09 });
-    this.tone(pos, tock ? 1650 : 1900, 0.025, 0.012);
+    this.burst(pos, { type: 'highpass', freq: tock ? 2600 : 3400, q: 0.8, dur: 0.03, gain: 0.045 });
+    this.tone(pos, tock ? 1650 : 1900, 0.025, 0.006);
   }
 
   tone(pos, freq, dur, gain, type = 'sine', when = 0) {

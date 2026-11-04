@@ -937,7 +937,7 @@ function frame() {
       lastTick = half;
       for (const src of ctx.tickSources) {
         if (src.kind === 'small') audio.tick(src.pos, half % 2);
-        else if (half % 2 === 0) audio.burst(src.pos, { type: 'bandpass', freq: 1400, q: 3, dur: 0.05, gain: 0.1 });
+        else if (half % 2 === 0) audio.burst(src.pos, { type: 'bandpass', freq: 1400, q: 3, dur: 0.05, gain: 0.05 });
       }
     }
   }
