@@ -33,6 +33,8 @@ try {
   await import('./main.js');
   boot.hidden = true;
 } catch (e) {
-  document.getElementById('bootMsg').textContent = '読み込みに失敗しました。再読み込みしてください。';
+  const msg = document.getElementById('bootMsg');
+  msg.textContent = '読み込みに失敗しました。再読み込みしてください。';
+  msg.hidden = false;
   console.error(e);
 }
