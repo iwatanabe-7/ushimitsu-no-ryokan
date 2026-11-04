@@ -1040,7 +1040,7 @@ function footsteps(moved, zone, dt) {
   if (stepAcc > 0.62) {
     stepAcc = 0;
     if (['tsubaki', 'shobu', 'kikyo', 'hiroma', 'matsu', 'take'].includes(zone)) audio.stepTatami();
-    else if (zone === 'garden') audio.burst(null, { type: 'highpass', freq: 1800, q: 0.6, dur: 0.16, gain: 0.08, attack: 0.01 });
+    else if (zone === 'garden') audio.burst(null, { type: 'highpass', freq: 1800, q: 0.6, dur: 0.16, gain: 0.027, attack: 0.01 });
     else if (zone === 'roten' && player.floorY < -0.3) audio.burst(W.bath.poolPos.clone().set(p.x, -0.2, p.z), { type: 'bandpass', freq: 500, q: 0.8, dur: 0.35, gain: 0.12, attack: 0.04 });
     else if (zone === 'roten' || player.floorY < -0.2) audio.burst(null, { type: 'lowpass', freq: 900, q: 0.7, dur: 0.12, gain: 0.25 });
     else audio.stepWood(new THREE.Vector3(p.x, 0, p.z), 0.28);
