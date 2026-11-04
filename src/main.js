@@ -849,6 +849,7 @@ function frame() {
   };
   W.tsubaki.door.open(anim('doorOpen', 'doorAnim', 1.1));
   W.tsubaki.oshS.position.z = lerp(0.45, -0.35, anim('oshiireOpen', 'oshiireAnim', 0.8));
+  W.tsubaki.oshiireLamp.level = state.oshiireAnim;
   W.shobu.door.open(anim('shobuOpen', 'shobuAnim', 1.0));
   W.kikyo.door.open(anim('kikyoOpen', 'kikyoAnim', 1.2));
   W.watari.hiromaDoor.open(anim('hiromaOpen', 'hiromaAnim', 1.0));
@@ -872,7 +873,7 @@ function frame() {
       lastTick = half;
       for (const src of ctx.tickSources) {
         if (src.kind === 'small') audio.tick(src.pos, half % 2);
-        else if (half % 2 === 0) audio.burst(src.pos, { type: 'bandpass', freq: 1400, q: 3, dur: 0.06, gain: 0.35 });
+        else if (half % 2 === 0) audio.burst(src.pos, { type: 'bandpass', freq: 1400, q: 3, dur: 0.05, gain: 0.1 });
       }
     }
   }

@@ -206,6 +206,12 @@ export function buildTsubaki(ctx) {
   box(0.42, 0.06, 0.34, std({ map: T.yukataTexture(), roughness: 0.95 }), 0, 0, 0, { parent: yukata });
   box(0.42, 0.012, 0.06, std({ color: 0x5a1a1a, roughness: 0.8 }), 0, 0.035, 0.04, { parent: yukata });
   yukata.position.set(2.15, 0.81, 0.5);
+  yukata.children[0].material.emissiveMap = yukata.children[0].material.map;
+  yukata.children[0].material.emissive.setHex(0xffffff);
+  yukata.children[0].material.emissiveIntensity = 0.12;
+  // 押入れを開けると、中がほんのり見える（部屋の行灯の明かりが回り込む想定）
+  const oshiireLamp = ctx.addLamp({ pos: new THREE.Vector3(1.95, 1.3, 0.35), color: 0xffb070, base: 1.5, distance: 2.6, kind: 'fill', zone: 'tsubaki' });
+  oshiireLamp.level = 0;
   scene.add(yukata);
   for (let i = 0; i < 4; i++) box(0.7, 0.13, 0.75, std({ color: i % 2 ? 0xbfb6a6 : 0x6a4a40, roughness: 0.95 }), 2.2, 0.12 + i * 0.135, 0.45 - (i % 2) * 0.02);
   for (let i = 0; i < 3; i++) box(0.7, 0.14, 0.75, std({ color: 0xa89e8c, roughness: 0.95 }), 2.2, 0.85 + i * 0.145, -0.45);
@@ -265,6 +271,7 @@ export function buildTsubaki(ctx) {
   ctx.zones.push({ name: 'tsubaki', r: [-HW, HW, -2.45, HW + 0.06] });
 
   return {
+    oshiireLamp,
     H, door, oshS, card, moon, leakStrip, leakGlow, leakLight,
     clockPos: new THREE.Vector3(CLOCK.x, 0.12, CLOCK.z),
     doorPos: new THREE.Vector3(0.4, 0.9, HW),

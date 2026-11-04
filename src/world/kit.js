@@ -22,7 +22,7 @@ export function initMaterials() {
   M.lacquer = std({ color: 0x0c0806, roughness: 0.28, metalness: 0.1 });
   M.toko = std({ map: T.woodMap('toko', { rotate: true, repeat: [1, 1.5] }), roughness: 0.3, color: 0x9a8070 });
   M.cedar = std({ map: T.woodMap('cedar', { rotate: true, repeat: [1, 4] }), roughness: 0.75, color: 0xa08a70 });
-  M.oshiire = std({ map: T.woodMap('light', { rotate: true, repeat: [1, 2] }), roughness: 0.8, color: 0x8a7a68 });
+  M.oshiire = std({ map: T.woodMap('light', { rotate: true, repeat: [1, 2] }), roughness: 0.8, color: 0xb8a890 });
   M.table = std({ map: T.woodMap('toko', { rotate: true }), roughness: 0.22, color: 0x7a5a48 });
   M.pull = std({ color: 0x2a2014, roughness: 0.35, metalness: 0.6 });
   M.brass = std({ color: 0x8a6a30, roughness: 0.35, metalness: 0.8 });

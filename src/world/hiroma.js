@@ -1,7 +1,7 @@
 // 大広間（32畳）。客を待ったまま並ぶ膳、金屏風、上座の膳に「湯殿の鍵」
 import * as THREE from 'three';
 import * as T from '../core/textures.js';
-import { std, M, box, slab, wall, hitBox, tatami, ceiling, nageshi, post, andon } from './kit.js';
+import { std, M, box, slab, wall, hitBox, tatami, ceiling, nageshi, post, andon, chochin } from './kit.js';
 import { WT, R, HIROMA as Hr } from './layout.js';
 
 export function buildHiroma(ctx) {
@@ -43,10 +43,11 @@ export function buildHiroma(ctx) {
   const panels = 6, pw = (S.x1 - S.x0 - 0.4) / panels;
   for (let i = 0; i < panels; i++) {
     const t = byobu.clone();
+    // 箱の裏面（-z、広間側）は u が反転するので、右から順に貼る
     t.repeat.set(1 / panels, 1);
-    t.offset.set(i / panels, 0);
+    t.offset.set((panels - 1 - i) / panels, 0);
     t.needsUpdate = true;
-    const p = new THREE.Mesh(new THREE.BoxGeometry(pw, 1.5, 0.02), [M.lacquer, M.lacquer, M.lacquer, M.lacquer, std({ map: t, roughness: 0.35, metalness: 0.55 }), M.lacquer]);
+    const p = new THREE.Mesh(new THREE.BoxGeometry(pw, 1.5, 0.02), [M.lacquer, M.lacquer, M.lacquer, M.lacquer, M.lacquer, std({ map: t, emissiveMap: t, emissive: 0x7a5a28, emissiveIntensity: 0.35, roughness: 0.35, metalness: 0.45 })]);
     p.position.set(S.x0 + 0.2 + pw * (i + 0.5), S.y + 0.76, Hr.z1 - 0.35 + (i % 2 ? 0.06 : -0.06));
     p.rotation.y = (i % 2 ? 1 : -1) * 0.12;
     p.castShadow = p.receiveShadow = true;
@@ -123,6 +124,13 @@ export function buildHiroma(ctx) {
     flame.position.set(x, S.y + 0.97, S.z0 + 0.3);
     scene.add(flame);
     lamps.push(ctx.addLamp({ pos: new THREE.Vector3(x, S.y + 1.0, S.z0 + 0.3), color: 0xffa04a, base: 2.6, paper: new THREE.MeshStandardMaterial(), paperBase: 1, kind: 'candle', zone: 'hiroma', flame }));
+  }
+
+  // 舞台の前に吊った提灯
+  for (const x of [13.1, 15.54]) {
+    const l = chochin(x, 2.25, 9.25, { kanji: '宴' });
+    lamps.push(ctx.addLamp({ pos: new THREE.Vector3(x, 2.15, 9.25), color: 0xff9040, base: 3.6, distance: 6, paper: l.paper.material, paperBase: 1.6, kind: 'lantern', zone: 'hiroma' }));
+    ctx.sway.push({ mesh: l.group, seed: x, lantern: true });
   }
 
   const H = {
