@@ -12,6 +12,7 @@ export class Player {
     this.yaw = Math.PI + 0.35;
     this.pitch = 0;
     this.floorY = 0;
+    this.level = 0;
     this.keys = {};
     this.sensitivity = 1;
     this.locked = false;
@@ -106,19 +107,29 @@ export class Player {
     } catch (_) { /* ポインタロックできない環境ではドラッグで視点操作 */ }
   }
 
+  // 階（0 = 一階、1 = 二階）。lv が 'any' のものはどの階からも使える（階段）
+  onLevel(item) {
+    const lv = item.lv ?? 0;
+    return lv === 'any' || lv === this.level;
+  }
+
   walkable(x, z) {
     const { walk, block } = this.ctx;
     for (const b of block) {
-      if (b.when && !b.when()) continue;
+      if (!this.onLevel(b) || (b.when && !b.when())) continue;
       if (b.r && inRect(x, z, b.r)) return false;
       if (b.c && Math.hypot(x - b.c[0], z - b.c[1]) < b.c[2]) return false;
+      if (b.e && ((x - b.e[0]) / b.e[2]) ** 2 + ((z - b.e[1]) / b.e[3]) ** 2 < 1) return false;
     }
-    return walk.some((w) => (!w.when || w.when()) && inRect(x, z, w.r));
+    return walk.some((w) => this.onLevel(w) && (!w.when || w.when()) && inRect(x, z, w.r));
   }
 
   floorAt(x, z) {
-    for (const f of this.ctx.floors) if (inRect(x, z, f.r)) return f.y;
-    return 0;
+    for (const f of this.ctx.floors) {
+      if (!this.onLevel(f) || !inRect(x, z, f.r)) continue;
+      return f.fn ? f.fn(x, z) : f.y;
+    }
+    return this.level === 1 ? 2.75 : 0;
   }
 
   // gate(x, z) が false を返す場所には進まない（物語上の通せんぼ）
@@ -145,7 +156,11 @@ export class Player {
     if (this.walkable(p.x + dx, p.z) && gate(p.x + dx, p.z)) p.x += dx;
     if (this.walkable(p.x, p.z + dz) && gate(p.x, p.z + dz)) p.z += dz;
     const moved = Math.hypot(p.x - bx, p.z - bz);
-    // 段差（玄関の土間）はゆっくり下りる
+    // 階段の上半分にいれば二階、下半分なら一階として扱う
+    for (const f of this.ctx.floors) {
+      if (f.stairs && inRect(p.x, p.z, f.r)) this.level = f.fn(p.x, p.z) > 1.37 ? 1 : 0;
+    }
+    // 段差（玄関の土間、庭、階段）はなめらかに上り下りする
     const target = this.floorAt(p.x, p.z);
     this.floorY += (target - this.floorY) * Math.min(1, dt * 8);
     return moved;

@@ -16,9 +16,9 @@ export function buildCorridor(ctx) {
   wall(C.x0, -1.92, 0, 2.4, 1.8, C.z0);
   wall(1.92, 2.72, 0, 2.4, 1.8, C.z0);
   wall(10.4, C.x1, 0, 2.4, 1.8, C.z0);
-  // 突き当たり
-  wall(C.x0 - WT, C.x0, 0, C.ceil, C.z0, C.z1 + WT);
-  wall(C.x1, C.x1 + WT, 0, C.ceil, C.z0, C.z1 + WT);
+  // 西の突き当たりは階段、東の突き当たりは渡り廊下へ続く（壁はない）
+  slab(C.x0 - 0.02, C.x0 + 0.02, 1.86, C.ceil, C.z0, C.z1, M.beam);
+  slab(C.x1 - 0.02, C.x1 + 0.02, 1.95, C.ceil, C.z0, C.z1, M.beam);
   // 南側の壁。帳場と玄関の口が開いている
   const [c0, c1] = CHOBA.open;
   const [g0, g1] = GENKAN.open;
@@ -63,11 +63,9 @@ export function buildCorridor(ctx) {
     plateTsubaki: hitBox(hits, 'plateTsubaki', 0.25, 0.4, 0.1, 1.22, 1.55, C.z0 + 0.03),
     plateShobu: hitBox(hits, 'plateShobu', 0.25, 0.4, 0.1, 5.86, 1.55, C.z0 + 0.03),
     plateKikyo: hitBox(hits, 'plateKikyo', 0.25, 0.4, 0.1, 7.26, 1.55, C.z0 + 0.03),
-    endW: hitBox(hits, 'corridorEnd', 0.1, 2.0, 1.5, C.x0 + 0.02, 1.0, 2.71),
-    endE: hitBox(hits, 'corridorEnd', 0.1, 2.0, 1.5, C.x1 - 0.02, 1.0, 2.71),
   };
 
-  ctx.walk.push({ r: [C.x0 + R, C.x1 - R, C.z0 + R, C.z1 - R] });
+  ctx.walk.push({ r: [C.x0 - 0.1, C.x1 + 0.1, C.z0 + R, C.z1 - R] });
   ctx.zones.push({ name: 'corridor', r: [C.x0, C.x1, 1.86, C.z1 + 0.06] });
   return { lanterns, H };
 }

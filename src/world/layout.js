@@ -23,3 +23,15 @@ export function sixMats(x0, z0) {
     [x0 + 2.7, x0 + 3.6, z0 + 0.9, z0 + 2.7],
   ];
 }
+
+// ---- 増築：東の渡り廊下・中庭・大浴場・大広間、西の階段と二階
+export const WATARI = { x0: 10.6, x1: 18.0, z0: 1.92, z1: 3.5, steps: [13.95, 14.75] };
+export const GARDEN = { x0: 10.6, x1: 17.9, z0: -6.6, z1: 1.8, y: -0.4 };
+export const DATSUI = { x0: 18.12, x1: 21.72, z0: 0.8, z1: 4.4, door: [2.2, 3.2], out: [19.4, 20.4] };
+export const ROTEN = { x0: 18.0, x1: 24.5, z0: -5.5, z1: 0.68, pool: [21.3, -2.5, 2.0, 1.5] };
+export const HIROMA = { x0: 10.72, x1: 17.92, z0: 3.62, z1: 10.82, ceil: 2.9, door: 14.32 };
+export const STAIRS = { x0: -5.0, x1: -2.4, z0: 1.92, z1: 3.5, bottom: -2.5, top: -5.0 };
+export const F2 = 2.75; // 二階の床の高さ
+export const F2CORR = { x0: -6.6, x1: -5.0, z0: 1.92, z1: 9.6 };
+export const MATSU = { cx: -8.07, cz: 3.92 };
+export const TAKE = { cx: -8.07, cz: 7.74 };

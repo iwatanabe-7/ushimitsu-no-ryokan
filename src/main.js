@@ -10,6 +10,10 @@ import { buildChoba } from './world/choba.js';
 import { buildShobu } from './world/shobu.js';
 import { buildKikyo } from './world/kikyo.js';
 import { buildGenkan } from './world/genkan.js';
+import { buildWatari } from './world/watari.js';
+import { buildBath } from './world/bath.js';
+import { buildHiroma } from './world/hiroma.js';
+import { buildUpstairs } from './world/upstairs.js';
 import { buildOkami } from './world/okami.js';
 import { MSG, LABEL, ledgerEntries } from './game/messages.js';
 import { UI, drawCardIcon, drawKeyIcon, drawLetterIcon } from './game/ui.js';
@@ -35,6 +39,8 @@ const state = {
   lap2,
   hasKey: false, hasTsubaki: false, hasShobu: false, hasKikyo: false, hasLetter: false,
   oshiireOpen: false, oshiireAnim: 0,
+  hiromaOpen: false, hiromaAnim: 0,
+  yudonoOpen: false, yudonoAnim: 0, hasYudonoKey: false, mirrorSeen: false,
   doorOpen: false, doorAnim: 0,
   shobuOpen: false, shobuAnim: 0,
   kikyoOpen: false, kikyoAnim: 0, // kikyoOpened（設計書のフラグ）
@@ -49,11 +55,9 @@ const state = {
 const ctx = {
   scene, state,
   hits: [], walk: [], block: [], zones: [], floors: [], lamps: [], sway: [], clockFaces: [], tickSources: [],
+  // 灯りは数が多いので、実際の光源は近いものから順に LIGHT_POOL 個だけ割り当てる
   addLamp(o) {
-    const light = new THREE.PointLight(o.color, 0, o.distance ?? 6, 2);
-    light.position.copy(o.pos);
-    scene.add(light);
-    const lamp = { ...o, light, level: 1, vis: 0, seed: Math.random() * 100 };
+    const lamp = { ...o, level: 1, vis: 0, now: 0, seed: Math.random() * 100 };
     ctx.lamps.push(lamp);
     return lamp;
   },
@@ -68,6 +72,13 @@ shadowLight.shadow.bias = -0.003;
 shadowLight.shadow.normalBias = 0.02;
 shadowLight.shadow.camera.near = 0.08;
 scene.add(shadowLight);
+const LIGHT_POOL = 9;
+const pool = [];
+for (let i = 0; i < LIGHT_POOL; i++) {
+  const l = new THREE.PointLight(0xffffff, 0, 6, 2);
+  scene.add(l);
+  pool.push(l);
+}
 
 const W = {
   tsubaki: buildTsubaki(ctx),
@@ -76,6 +87,10 @@ const W = {
   shobu: buildShobu(ctx),
   kikyo: buildKikyo(ctx),
   genkan: buildGenkan(ctx),
+  watari: buildWatari(ctx),
+  bath: buildBath(ctx),
+  hiroma: buildHiroma(ctx),
+  upstairs: buildUpstairs(ctx),
 };
 // 女将は姿を見せない。灯りの前に立ったときの影だけで現れる
 const okami = buildOkami({ mode: 'caster' });
@@ -268,7 +283,7 @@ function act() {
     case 'diary':
       return say(lap2 ? [...MSG.diary, ...MSG.diaryLap2] : MSG.diary);
     case 'mirror':
-      if (state.hasShobu) return say(MSG.mirrorEmpty);
+      if (state.mirrorSeen) return say(MSG.mirrorEmptyNote);
       return say(MSG.mirror, mirrorScare);
 
     // 桔梗の間
@@ -303,6 +318,36 @@ function act() {
     case 'lock':
       if (!(state.hasTsubaki && state.hasShobu && state.hasKikyo)) return say(MSG.lockNeed);
       return openLock();
+
+    // 渡り廊下・大広間・大浴場
+    case 'hiromaDoor':
+      state.hiromaOpen = true;
+      W.watari.H.hiromaDoor.userData.enabled = false;
+      audio.slide(new THREE.Vector3(14.6, 0.9, 3.5), 1.0, 0.35);
+      return;
+    case 'kamiza':
+      if (state.hasYudonoKey) return say(MSG.kamizaEmpty);
+      W.hiroma.key.visible = false;
+      audio.pickup();
+      state.hasYudonoKey = true;
+      return say(MSG.kamiza, () => {
+        ui.addItem('yudono', '湯殿の鍵', drawKeyIcon);
+        clapScare();
+      });
+    case 'yudonoDoor':
+      if (!state.hasYudonoKey) return say(MSG.yudonoLocked);
+      audio.unlock(W.bath.doorPos);
+      return say(MSG.yudonoOpen, () => {
+        state.yudonoOpen = true;
+        W.bath.H.yudonoDoor.userData.enabled = false;
+        audio.slide(W.bath.doorPos, 0.9, 0.35);
+      });
+    case 'bathCard':
+      W.bath.card.visible = false;
+      W.bath.H.bathCard.userData.enabled = false;
+      audio.burst(W.bath.poolPos, { type: 'lowpass', freq: 700, q: 0.6, dur: 0.6, gain: 0.3, attack: 0.05 });
+      state.hasShobu = true;
+      return say(MSG.bathCard, () => ui.addItem('shobu', '菖蒲の札', drawCardIcon('shobu')));
 
     // 二周目：女将の影
     case 'okami':
@@ -411,11 +456,21 @@ function mirrorScare() {
     W.shobu.andonLamp.level = 1;
     showOkami(false);
     setTimeout(() => {
-      state.hasShobu = true;
-      audio.pickup();
-      say(MSG.mirrorAfter, () => ui.addItem('shobu', '菖蒲の札', drawCardIcon('shobu')));
+      state.mirrorSeen = true;
+      say(MSG.mirrorAfter);
     }, 500);
   }, 500);
+}
+
+// 大広間で鍵を取ると、誰もいない舞台の方で三度、手が打たれる
+function clapScare() {
+  const at = W.hiroma.stagePos;
+  W.hiroma.lamps.forEach((l) => (l.level = 0.35));
+  [900, 1900, 2900].forEach((ms) => setTimeout(() => audio.burst(at, { type: 'bandpass', freq: 1500, q: 1.2, dur: 0.09, gain: 0.7 }), ms));
+  setTimeout(() => {
+    W.hiroma.lamps.forEach((l) => (l.level = 1));
+    say(MSG.claps);
+  }, 3900);
 }
 
 // 驚かせ2：桔梗の札を取ると、廊下の提灯が半分消えて、襖の外を足音が通り過ぎる
@@ -671,19 +726,36 @@ $('start').addEventListener('click', startGame);
 // ---------------------------------------------------------------- 毎フレームの処理
 function zoneAt(x, z) {
   for (const zn of ctx.zones) {
+    const lv = zn.lv ?? 0;
+    if (lv !== 'any' && lv !== player.level) continue;
     const [x0, x1, z0, z1] = zn.r;
     if (x >= x0 && x <= x1 && z >= z0 && z <= z1) return zn.name;
   }
-  return 'corridor';
+  return player.level === 1 ? 'f2' : 'corridor';
 }
-// プレイヤーから見える区画（閉じた部屋の灯りは消しておき、壁越しの光漏れを防ぐ）
+// 区画のつながり。条件が真のあいだ、互いの灯りが見える（閉じた部屋の灯りは消して、壁越しの光漏れを防ぐ）
+const LINKS = [
+  ['tsubaki', 'corridor', () => state.doorAnim > 0.01],
+  ['shobu', 'corridor', () => state.shobuAnim > 0.01],
+  ['kikyo', 'corridor', () => state.kikyoAnim > 0.01],
+  ['choba', 'corridor', () => true],
+  ['genkan', 'corridor', () => true],
+  ['corridor', 'stairs', () => true],
+  ['corridor', 'watari', () => true],
+  ['stairs', 'f2', () => true],
+  ['f2', 'matsu', () => true],
+  ['f2', 'take', () => true],
+  ['watari', 'garden', () => true],
+  ['watari', 'hiroma', () => state.hiromaAnim > 0.01],
+  ['watari', 'datsui', () => state.yudonoAnim > 0.01],
+  ['datsui', 'roten', () => true],
+];
 function visibleZones(zone) {
-  const open = { tsubaki: state.doorAnim > 0.01, shobu: state.shobuAnim > 0.01, kikyo: state.kikyoAnim > 0.01, choba: true, genkan: true };
   const v = new Set([zone]);
-  if (zone === 'corridor') {
-    for (const k in open) if (open[k]) v.add(k);
-  } else if (open[zone]) {
-    v.add('corridor');
+  for (const [a, b, ok] of LINKS) {
+    if (!ok()) continue;
+    if (a === zone) v.add(b);
+    if (b === zone) v.add(a);
   }
   return v;
 }
@@ -718,7 +790,6 @@ function frame() {
       ? 0.9 + Math.sin(t * 5.1 + L.seed) * 0.06 + Math.sin(t * 11.7 + L.seed * 2) * 0.04
       : 0.86 + Math.sin(t * 7.3 + L.seed) * 0.05 + Math.sin(t * 13.1 + L.seed) * 0.04 + (Math.random() - 0.5) * 0.06;
     L.now = L.base * fl * L.level * L.vis;
-    L.light.intensity = L.now;
     if (L.paper) L.paper.emissiveIntensity = L.paperBase * fl * L.level;
     if (L.flame) L.flame.scale.set(1, 2 + Math.sin(t * 17 + L.seed) * 0.4, 1);
     if (L.vis > 0.5 && L.level > 0.1) {
@@ -736,8 +807,20 @@ function frame() {
   }
   if (forcedLamp && forcedLamp.vis > 0.3) best = forcedLamp;
   shadowLamp = best;
+  // 影を落とす灯り以外を、明るく近い順に光源へ割り当てる
+  const ranked = ctx.lamps
+    .filter((L) => L !== best && L.now > 0.02)
+    .map((L) => ({ L, s: L.now / Math.max(1, L.pos.distanceToSquared(player.pos)) }))
+    .sort((a, b) => b.s - a.s);
+  pool.forEach((light, i) => {
+    const L = ranked[i]?.L;
+    if (!L) return void (light.intensity = 0);
+    light.position.copy(L.pos);
+    light.color.setHex(L.color);
+    light.intensity = L.now;
+    light.distance = L.distance ?? 6;
+  });
   if (best) {
-    best.light.intensity = 0;
     shadowLight.position.copy(best.pos);
     shadowLight.color.setHex(best.color);
     shadowLight.intensity = best.now;
@@ -768,6 +851,13 @@ function frame() {
   W.tsubaki.oshS.position.z = lerp(0.45, -0.35, anim('oshiireOpen', 'oshiireAnim', 0.8));
   W.shobu.door.open(anim('shobuOpen', 'shobuAnim', 1.0));
   W.kikyo.door.open(anim('kikyoOpen', 'kikyoAnim', 1.2));
+  W.watari.hiromaDoor.open(anim('hiromaOpen', 'hiromaAnim', 1.0));
+  W.bath.open(anim('yudonoOpen', 'yudonoAnim', 0.9));
+  W.bath.update(t, vis.has('roten') || vis.has('datsui'));
+  // 屋外は見えているときだけ月明かりと池の映り込みを描く
+  const outside = vis.has('garden') || vis.has('watari') || vis.has('roten');
+  W.watari.moon.intensity = outside ? 150 : 0;
+  W.watari.pond.visible = vis.has('garden') || vis.has('watari');
 
   // 時計
   const gt = gameTime(t);
@@ -883,14 +973,15 @@ function footsteps(moved, zone, dt) {
   stepAcc += moved;
   if (stepAcc > 0.62) {
     stepAcc = 0;
-    if (zone === 'tsubaki' || zone === 'shobu' || zone === 'kikyo') audio.stepTatami();
-    else if (player.floorY < -0.2) audio.burst(null, { type: 'lowpass', freq: 900, q: 0.7, dur: 0.12, gain: 0.25 });
+    if (['tsubaki', 'shobu', 'kikyo', 'hiroma', 'matsu', 'take'].includes(zone)) audio.stepTatami();
+    else if (zone === 'garden') audio.burst(null, { type: 'highpass', freq: 1800, q: 0.6, dur: 0.18, gain: 0.3, attack: 0.01 });
+    else if (zone === 'roten' || player.floorY < -0.2) audio.burst(null, { type: 'lowpass', freq: 900, q: 0.7, dur: 0.12, gain: 0.25 });
     else audio.stepWood(new THREE.Vector3(p.x, 0, p.z), 0.28);
   }
   // 足音の残響（FootstepEcho）：廊下で止まると、少し遅れてもう一歩
   if (moved > 0.0005) {
     stillTime = 0;
-    if (zone === 'corridor') echoArmed = true;
+    if (zone === 'corridor' || zone === 'watari' || zone === 'f2') echoArmed = true;
   } else {
     stillTime += dt;
     if (echoArmed && stillTime > 0.38) {
@@ -908,6 +999,15 @@ function zoneEvents(zone) {
       state.visited[zone] = true;
       if (zone === 'corridor') say(MSG.corridorFirst);
       if (zone === 'genkan') say(MSG.genkanFirst);
+      if (zone === 'watari') say(MSG.watariFirst);
+      if (zone === 'garden') say(MSG.gardenFirst);
+      if (zone === 'hiroma') say(MSG.hiromaFirst);
+      if (zone === 'stairs') say(MSG.stairsFirst);
+      if (zone === 'take') {
+        // 竹の間に入ると、背後の廊下を小さな足音が走り抜ける
+        for (let i = 0; i < 6; i++) setTimeout(() => audio.stepWood(new THREE.Vector3(-5.8, 2.75, 9.2 - i * 1.2), 0.3), 900 + i * 230);
+        setTimeout(() => say(MSG.takeRun), 2600);
+      }
     }
   }
 }
@@ -935,8 +1035,10 @@ window.__inn = {
     mirrorFigureOn = on;
     W.shobu.andonLamp.level = on ? 2.4 : 1;
   },
-  look(x, z, tx, ty, tz) {
+  look(x, z, tx, ty, tz, level = 0) {
+    player.level = level;
     player.pos.set(x, EYE, z);
+    player.floorY = player.floorAt(x, z);
     const dx = tx - x, dy = ty - EYE - player.floorY, dz = tz - z;
     player.yaw = Math.atan2(-dx, -dz);
     player.pitch = Math.atan2(dy, Math.hypot(dx, dz));

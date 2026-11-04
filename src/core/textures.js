@@ -859,3 +859,86 @@ export function paperScrap(lines, { seed = 111, tint = '#ddd2b4' } = {}) {
   });
   return toTexture(c);
 }
+
+// 枯山水の砂利（掃き目）
+export function gravelTexture() {
+  const S = 512;
+  const [c, x] = makeCanvas(S, S);
+  x.fillStyle = '#8e8a82';
+  x.fillRect(0, 0, S, S);
+  speckle(x, S, S, 26000, 201, ['#a8a49a', '#6e6a62', '#bab6ac', '#5a5650'], 1.6);
+  x.strokeStyle = 'rgba(40,38,34,0.35)';
+  x.lineWidth = 3;
+  for (let y = 8; y < S; y += 16) {
+    x.beginPath();
+    for (let px = 0; px <= S; px += 8) x.lineTo(px, y + Math.sin(px * 0.02) * 2);
+    x.stroke();
+  }
+  smoothNoise(x, S, S, 6, 0.2, 202, [40, 50, 30]);
+  return toTexture(c, { repeat: [5, 6] });
+}
+
+// 金屏風（金箔の升目に松）
+export function byobuTexture() {
+  const W = 1024, H = 384;
+  const [c, x] = makeCanvas(W, H);
+  const r = rng(211);
+  for (let gx = 0; gx < W; gx += 32) {
+    for (let gy = 0; gy < H; gy += 32) {
+      const l = 52 + r() * 10;
+      x.fillStyle = `hsl(${42 + r() * 4}, ${55 + r() * 10}%, ${l}%)`;
+      x.fillRect(gx, gy, 32, 32);
+    }
+  }
+  x.strokeStyle = 'rgba(120,90,30,0.25)';
+  for (let gx = 0; gx < W; gx += 32) { x.beginPath(); x.moveTo(gx, 0); x.lineTo(gx, H); x.stroke(); }
+  for (let gy = 0; gy < H; gy += 32) { x.beginPath(); x.moveTo(0, gy); x.lineTo(W, gy); x.stroke(); }
+  // 老松
+  x.strokeStyle = 'rgba(40,28,18,0.9)';
+  x.lineCap = 'round';
+  x.lineWidth = 22;
+  x.beginPath();
+  x.moveTo(120, H);
+  x.bezierCurveTo(200, 260, 140, 180, 330, 140);
+  x.bezierCurveTo(480, 110, 560, 160, 700, 120);
+  x.stroke();
+  x.fillStyle = 'rgba(30,60,40,0.85)';
+  for (const [px, py, rx] of [[330, 120, 90], [520, 100, 110], [720, 100, 90], [200, 190, 70], [860, 140, 70]]) {
+    for (let k = 0; k < 5; k++) {
+      x.beginPath();
+      x.ellipse(px + (k - 2) * rx * 0.3, py + Math.sin(k) * 10, rx * 0.4, 22, 0, 0, Math.PI * 2);
+      x.fill();
+    }
+  }
+  // 子どもの手形
+  x.fillStyle = 'rgba(60,20,15,0.55)';
+  x.beginPath();
+  x.ellipse(960, 300, 14, 18, 0, 0, Math.PI * 2);
+  x.fill();
+  for (let f = 0; f < 5; f++) {
+    x.beginPath();
+    x.ellipse(946 + f * 7, 276 - Math.abs(2 - f) * 3, 3, 9, (f - 2) * 0.2, 0, Math.PI * 2);
+    x.fill();
+  }
+  return toTexture(c);
+}
+
+// 夜空（月と薄雲）。球の内側に貼る
+export function skyTexture() {
+  const W = 1024, H = 512;
+  const [c, x] = makeCanvas(W, H);
+  const g = x.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#05070d');
+  g.addColorStop(0.45, '#101826');
+  g.addColorStop(0.5, '#1a2230');
+  g.addColorStop(1, '#05060a');
+  x.fillStyle = g;
+  x.fillRect(0, 0, W, H);
+  const r = rng(221);
+  for (let i = 0; i < 400; i++) {
+    x.fillStyle = `rgba(220,225,240,${r() * 0.6})`;
+    x.fillRect(r() * W, r() * H * 0.45, 1.2, 1.2);
+  }
+  smoothNoise(x, W, H * 0.5, 10, 0.25, 222, [60, 70, 90]);
+  return toTexture(c);
+}

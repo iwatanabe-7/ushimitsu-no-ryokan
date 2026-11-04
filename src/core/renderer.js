@@ -22,7 +22,7 @@ export function createRenderer(canvas, quality = 'high') {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x020203);
   scene.fog = new THREE.FogExp2(0x040405, 0.075);
-  const camera = new THREE.PerspectiveCamera(68, window.innerWidth / window.innerHeight, 0.03, 40);
+  const camera = new THREE.PerspectiveCamera(68, window.innerWidth / window.innerHeight, 0.03, 140);
   camera.rotation.order = 'YXZ';
 
   let composer, bloom, film, q;

@@ -217,3 +217,34 @@ export function plate(tex, x, y, z) {
   root.add(m);
   return m;
 }
+
+// 楕円の穴（池や湯船）の開いた地面。穴の内側には石の縁と底を付ける
+export function groundWithHole({ x0, x1, z0, z1, y, mat, hole: [cx, cz, rx, rz], depth = 0.4, wallMat, bedMat }) {
+  const shape = new THREE.Shape();
+  shape.moveTo(x0, -z0);
+  shape.lineTo(x1, -z0);
+  shape.lineTo(x1, -z1);
+  shape.lineTo(x0, -z1);
+  shape.closePath();
+  const h = new THREE.Path();
+  h.absellipse(cx, -cz, rx, rz, 0, Math.PI * 2, true);
+  shape.holes.push(h);
+  const g = new THREE.Mesh(new THREE.ShapeGeometry(shape, 48), mat);
+  g.rotation.x = -Math.PI / 2;
+  g.position.y = y;
+  g.receiveShadow = true;
+  root.add(g);
+  const side = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, depth, 48, 1, true), wallMat);
+  side.material.side = THREE.BackSide;
+  side.scale.set(rx, 1, rz);
+  side.position.set(cx, y - depth / 2, cz);
+  side.receiveShadow = true;
+  root.add(side);
+  const bed = new THREE.Mesh(new THREE.CircleGeometry(1, 48), bedMat);
+  bed.rotation.x = -Math.PI / 2;
+  bed.scale.set(rx, rz, 1);
+  bed.position.set(cx, y - depth, cz);
+  bed.receiveShadow = true;
+  root.add(bed);
+  return g;
+}
