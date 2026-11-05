@@ -43,7 +43,7 @@ export class Player {
     });
     window.addEventListener('mouseup', () => (dragging = false));
     window.addEventListener('mousemove', (e) => {
-      if (!this.lookEnabled) return;
+      if (!this.lookEnabled || this.lookBlocked?.()) return;
       if (!this.locked && !dragging) return;
       const s = 0.0022 * this.sensitivity;
       this.yaw -= e.movementX * s;
@@ -76,7 +76,7 @@ export class Player {
           TM.x = Math.cos(a) * l;
           TM.y = Math.sin(a) * l;
           stick.firstElementChild.style.transform = `translate(${TM.x * 28}px, ${TM.y * 28}px)`;
-        } else if (t.identifier === TL.id && this.lookEnabled) {
+        } else if (t.identifier === TL.id && this.lookEnabled && !this.lookBlocked?.()) {
           this.yaw -= (t.clientX - TL.x) * 0.006 * this.sensitivity;
           this.pitch = Math.max(-1.22, Math.min(1.22, this.pitch - (t.clientY - TL.y) * 0.006 * this.sensitivity));
           TL.x = t.clientX;

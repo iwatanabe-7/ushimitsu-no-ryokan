@@ -30,7 +30,7 @@ export class UI {
     this.done = done || null;
     this.el.msg.hidden = false;
     this.el.msg.classList.remove('caption');
-    document.body.classList.add('cinema');
+    document.body.classList.add('talk');
     this.next();
   }
 
@@ -46,7 +46,7 @@ export class UI {
     }
     if (!this.queue.length) {
       this.el.msg.hidden = true;
-      document.body.classList.remove('cinema');
+      document.body.classList.remove('talk');
       t.classList.remove('in');
       const d = this.done;
       this.done = null;
@@ -64,7 +64,7 @@ export class UI {
   // 演出の場面：操作を止めて黒い帯を出す。caption で帯の中に一行ずつ浮かべる（E では送れない）
   cinema(on) {
     this.locked = on;
-    document.body.classList.toggle('cinema', on);
+    document.body.classList.toggle('movie', on);
     if (!on) {
       this.el.msg.hidden = true;
       this.el.msgText.classList.remove('in');

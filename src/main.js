@@ -165,6 +165,7 @@ if (lap2) {
 const ui = new UI();
 const player = new Player(ctx, canvas);
 player.sensitivity = save.settings.sensitivity;
+player.lookBlocked = () => ui.talking; // 文字が出ているあいだは視点も止める
 let suppressPause = false;
 player.onLockChange = (locked) => {
   if (locked) return;
@@ -551,6 +552,7 @@ let turnAnim = null;
 let camAnim = null;
 function genkanScare() {
   state.phase = 'scene';
+  ui.cinema(true);
   const Gk = W.genkan;
   audio.unlock(Gk.lockPos);
   // 一歩下がって、錠の脇の壁を見る
@@ -601,6 +603,7 @@ let scareRamp = null;
 
 // ---------------------------------------------------------------- エンディング
 function finish(key, title, lines, note) {
+  ui.cinema(false);
   state.phase = 'end';
   releasePointer();
   $('reticle').hidden = true;

@@ -159,8 +159,11 @@ button { font-family: var(--font); }
 .cine-bar { position: fixed; left: 0; right: 0; height: 13vh; background: #000; z-index: 3; pointer-events: none; transition: transform 0.6s cubic-bezier(.4, 0, .2, 1); }
 .cine-bar.top { top: 0; transform: translateY(-100%); }
 .cine-bar.bottom { bottom: 0; height: calc(13vh + env(safe-area-inset-bottom, 0px)); transform: translateY(100%); }
-body.cinema .cine-bar { transform: none; }
-body.cinema #inv, body.cinema #prompt, body.cinema #reticle { opacity: 0; }
+body.movie .cine-bar { transform: none; }
+body.movie #inv, body.movie #prompt, body.movie #reticle, body.talk #prompt, body.talk #reticle { opacity: 0; }
+/* 会話のときは黒帯を出さず、文字の後ろだけをうっすら暗くする */
+body.talk #msg { background: linear-gradient(rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.55) 45%, rgba(0, 0, 0, 0.7)); }
+body.talk #msgText { text-shadow: 0 0 8px #000, 0 0 2px #000; }
 #inv, #prompt, #reticle { transition: opacity 0.4s; }
 #msg {
   position: fixed;
