@@ -1,8 +1,8 @@
 {
-  "name": "ushimitsu-no-yado",
+  "name": "ushimitsu-ryokan",
   "productName": "丑三つの旅館",
   "version": "0.2.0",
-  "description": "丑三つシリーズ第2作。一人称の3D脱出ホラー",
+  "description": "丑三つシリーズ第2作「丑三つの旅館」。一人称の3D脱出ホラー",
   "private": true,
   "type": "module",
   "main": "electron/main.cjs",
@@ -28,7 +28,7 @@
     "vite": "6.0.7"
   },
   "build": {
-    "appId": "com.iwatanabe7.ushimitsunoyado",
+    "appId": "com.iwatanabe7.ushimitsuryokan",
     "productName": "丑三つの旅館",
     "directories": {
       "output": "release"
@@ -60,6 +60,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/iwatanabe-7/ushimitsu-no-yado.git"
+    "url": "https://github.com/iwatanabe-7/ushimitsu-ryokan.git"
   }
 }
