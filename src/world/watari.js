@@ -1,6 +1,5 @@
 // 渡り廊下と中庭。月明かりの庭に、池と石灯籠、松、古井戸
 import * as THREE from 'three';
-import { Reflector } from 'three/addons/objects/Reflector.js';
 import * as T from '../core/textures.js';
 import { std, M, box, slab, wall, hitBox, chochin, slidingDoor, groundWithHole } from './kit.js';
 import { WT, R, WATARI as W, GARDEN as Gd, HIROMA } from './layout.js';
@@ -67,11 +66,23 @@ export function buildWatari(ctx) {
   for (const y of [0.3, 1.1, 1.7]) slab(Gd.x1 - 0.02, Gd.x1 + 0.12, Gd.y + y, Gd.y + y + 0.04, Gd.z0, Gd.z1 - 0.3, std({ color: 0x3a3020 }));
 
   // 池（水面は鏡にする）
-  const pondGeo = new THREE.CircleGeometry(1, 48);
-  const pond = new Reflector(pondGeo, { clipBias: 0.003, textureWidth: 512, textureHeight: 512, color: 0x5a6670 });
-  pond.rotation.x = -Math.PI / 2;
-  pond.scale.set(P.rx, P.rz, 1);
+  // 池の水面。景色を描き直す鏡は重いので、艶のある黒い水と、揺れる月の映りで表す
+  const pond = new THREE.Group();
+  const water = new THREE.Mesh(new THREE.CircleGeometry(1, 48), std({ color: 0x0a1418, roughness: 0.08, metalness: 0.6 }));
+  water.rotation.x = -Math.PI / 2;
+  water.scale.set(P.rx, P.rz, 1);
+  water.receiveShadow = true;
+  pond.add(water);
+  const glintTex = T.radialGlow('210,220,240');
+  const glint = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.45), new THREE.MeshBasicMaterial({ map: glintTex, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending }));
+  glint.rotation.x = -Math.PI / 2;
+  glint.position.set(-0.5, 0.005, -0.35);
+  pond.add(glint);
   pond.position.set(P.x, Gd.y - 0.14, P.z);
+  pond.userData.update = (t) => {
+    glint.scale.set(1 + Math.sin(t * 0.9) * 0.08, 1 + Math.sin(t * 1.3 + 1) * 0.12, 1);
+    glint.material.opacity = 0.45 + Math.sin(t * 0.7) * 0.1;
+  };
   scene.add(pond);
   // 池の縁石
   const rock = (x, z, s, y = Gd.y) => {

@@ -114,12 +114,13 @@ export function buildGenkan(ctx) {
   ctx.block.push({ c: [9.9, 6.9, 0.17 + R] });
 
   // 驚かせ3用：廊下側から玄関へ差し込む灯り。普段は消しておき、影の計算もしない
-  const scareSpot = new THREE.SpotLight(0xffa060, 0, 9, 0.55, 0.45, 1.6);
+  const scareSpot = new THREE.SpotLight(0xffb070, 0, 10, 0.55, 0.3, 1.4);
   scareSpot.position.set(8.0, 1.55, 3.3);
   scareSpot.target.position.set(9.6, 1.0, G.z1);
   scareSpot.castShadow = false; // 花札錠を開いたときに有効にする（普段は影の計算を省く）
-  scareSpot.shadow.mapSize.set(1024, 1024);
-  scareSpot.userData.minShadow = 1024;
+  scareSpot.shadow.mapSize.set(2048, 2048);
+  scareSpot.userData.minShadow = 2048;
+  scareSpot.shadow.radius = 1.5;
   scareSpot.shadow.camera.near = 0.3;
   scareSpot.shadow.camera.far = 9;
   scareSpot.shadow.bias = -0.0005;

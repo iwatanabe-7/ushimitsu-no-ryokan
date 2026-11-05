@@ -63,7 +63,8 @@ const ctx = {
     return lamp;
   },
 };
-scene.add(new THREE.HemisphereLight(0x2c3a58, 0x1a120a, 0.5));
+const hemi = new THREE.HemisphereLight(0x2c3a58, 0x1a120a, 0.5);
+scene.add(hemi);
 // いちばん近い灯りだけが影を落とす（影の計算を1灯分に抑える）
 const shadowLight = new THREE.PointLight(0xff9447, 0, 8, 2);
 shadowLight.castShadow = true;
@@ -526,7 +527,7 @@ function lanternScare() {
 }
 
 // 大広間の奥の舞台から、誰かが歩き出す。広間を抜け、渡り廊下から廊下へ。
-// 三つ並んだ客室の真ん中、菖蒲の間の前で止まり、襖が開く。足音が終わる時刻（ms）を返す
+// 三つ並んだ客室の真ん中、菖蒲の間の前で止まる。足音が終わる時刻（ms）を返す
 function walkingFootsteps(start) {
   const route = [[14.3, 9.4], [14.5, 4.4], [14.6, 2.7], [10.6, 2.7], [4.64, 2.6]];
   const pts = [];
@@ -544,7 +545,6 @@ function walkingFootsteps(start) {
     }, start + i * 520);
   });
   const end = start + pts.length * 520;
-  setTimeout(() => audio.slide(W.shobu.doorPos, 1.0, 0.3), end + 700);
   return end;
 }
 
@@ -560,7 +560,7 @@ function genkanScare() {
   // 一歩下がって、錠の脇の壁を見る
   setTimeout(() => {
     const to = new THREE.Vector3(9.2, 0, 6.15);
-    const target = new THREE.Vector3(9.6, 1.3, 7.4);
+    const target = new THREE.Vector3(9.6, 0.95, 7.4);
     const dx = target.x - to.x, dz = target.z - to.z;
     camAnim = {
       t0: now(), dur: 1.4, from: player.pos.clone(), to: to.setY(player.pos.y),
@@ -579,7 +579,11 @@ function genkanScare() {
     okami.position.set(p.x, player.floorAt(p.x, p.z), p.z);
     okami.rotation.y = Math.atan2(dir.x, dir.z);
     sp.shadow.autoUpdate = true;
-    scareRamp = { t0: now(), from: 0, to: 14, dur: 1.6 };
+    // 影をはっきり見せる：壁を強く照らし、周りの薄明かりを落として影を黒く、輪郭を鋭くする
+    scareRamp = { t0: now(), from: 0, to: 32, dur: 1.4 };
+    hemi.intensity = 0.12;
+    Gk.domaLamp.level = 0;
+    Gk.lanternLamp.level = 0.05;
     audio.creak(okami.position.clone().setY(0.2), 0.2, 0.6);
   }, 2100);
   setTimeout(() => {
@@ -714,7 +718,7 @@ function applyQuality(name) {
   shadowLight.shadow.map = null;
   shadowLight.shadow.needsUpdate = true;
   pool.forEach((l, i) => (l.visible = i < G.quality.lights));
-  for (const m of [W.shobu.mirror, W.watari.pond]) m.getRenderTarget().setSize(G.quality.mirror, G.quality.mirror);
+  W.shobu.mirror.getRenderTarget().setSize(G.quality.mirror, G.quality.mirror);
 }
 qual.addEventListener('change', () => {
   save.settings.quality = qual.value;
@@ -962,7 +966,7 @@ function frame() {
   // 屋外は見えているときだけ月明かりと池の映り込みを描く
   const outside = vis.has('garden') || vis.has('watari') || vis.has('roten');
   W.watari.moon.intensity = outside ? 150 : 0;
-  W.watari.pond.visible = zone === 'garden' || (zone === 'watari' && player.pos.x > 12 && player.pos.x < 16.5);
+  if (vis.has('garden')) W.watari.pond.userData.update(t);
 
   // 時計
   const gt = gameTime(t);
