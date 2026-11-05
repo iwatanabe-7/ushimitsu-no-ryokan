@@ -718,6 +718,9 @@ function applyQuality(name) {
   shadowLight.shadow.map = null;
   shadowLight.shadow.needsUpdate = true;
   pool.forEach((l, i) => (l.visible = i < G.quality.lights));
+  // 低画質では月明かりの影を省く（影は女将の影など、灯りの影だけにする）
+  W.tsubaki.moon.castShadow = W.watari.moon.castShadow = G.quality.moonShadows;
+  W.tsubaki.moon.shadow.needsUpdate = W.watari.moon.shadow.needsUpdate = true;
   W.shobu.mirror.getRenderTarget().setSize(G.quality.mirror, G.quality.mirror);
 }
 qual.addEventListener('change', () => {
@@ -745,7 +748,7 @@ function autoQuality(t) {
   fpsProbe.frames = 0;
   const order = ['high', 'medium', 'low'];
   const i = order.indexOf(save.settings.quality);
-  if (fps < 40 && i < 2) {
+  if (fps < 45 && i < 2) {
     save.settings.quality = order[i + 1];
     qual.value = save.settings.quality;
     applyQuality(save.settings.quality);
@@ -923,7 +926,7 @@ function frame() {
     light.distance = L.distance ?? 6;
   });
   const animating = ['doorAnim', 'oshiireAnim', 'shobuAnim', 'kikyoAnim', 'hiromaAnim', 'yudonoAnim'].some((k) => state[k] > 0 && state[k] < 1);
-  if (best !== lastShadowLamp || animating || okami.position.y > -10 || t - lastShadowAt > 1.5) {
+  if (best !== lastShadowLamp || animating || okami.position.y > -10) {
     shadowLight.shadow.needsUpdate = true;
     lastShadowLamp = best;
     lastShadowAt = t;
@@ -964,8 +967,9 @@ function frame() {
   W.bath.open(anim('yudonoOpen', 'yudonoAnim', 0.9));
   W.bath.update(t, vis.has('roten') || vis.has('datsui'));
   // 屋外は見えているときだけ月明かりと池の映り込みを描く
-  const outside = vis.has('garden') || vis.has('watari') || vis.has('roten');
+  const outside = G.quality.moonShadows ? vis.has('garden') || vis.has('watari') || vis.has('roten') : zone === 'garden' || zone === 'roten';
   W.watari.moon.intensity = outside ? 150 : 0;
+  W.tsubaki.moon.intensity = vis.has('tsubaki') ? 90 : 0;
   if (vis.has('garden')) W.watari.pond.userData.update(t);
 
   // 時計
@@ -1122,16 +1126,10 @@ function zoneEvents(zone) {
     lastZone = zone;
     if (!state.visited[zone]) {
       state.visited[zone] = true;
-      if (zone === 'corridor') say(MSG.corridorFirst);
-      if (zone === 'genkan') say(MSG.genkanFirst);
-      if (zone === 'watari') say(MSG.watariFirst);
-      if (zone === 'garden') say(MSG.gardenFirst);
-      if (zone === 'hiroma') say(MSG.hiromaFirst);
-      if (zone === 'stairs') say(MSG.stairsFirst);
+      // 場所に入っただけでは字幕を出さない（文章は調べたときだけ）
       if (zone === 'take') {
-        // 竹の間に入ると、背後の廊下を小さな足音が走り抜ける
+        // 竹の間に入ると、背後の廊下を小さな足音が走り抜ける（音だけ）
         for (let i = 0; i < 6; i++) setTimeout(() => audio.stepWood(new THREE.Vector3(-5.8, 2.75, 9.2 - i * 1.2), 0.6), 900 + i * 230);
-        setTimeout(() => say(MSG.takeRun), 2600);
       }
     }
   }

@@ -8,9 +8,9 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 export const QUALITY = {
   // dpr: 描画解像度の上限（高精細の画面ではここが一番効く）、bloom: 光のにじみを計算する解像度の割合
-  high: { dpr: 1.25, shadow: 1024, bloom: 0.25, msaa: 4, lights: 6, mirror: 384, softShadow: true },
-  medium: { dpr: 1.0, shadow: 512, bloom: 0.25, msaa: 2, lights: 5, mirror: 256, softShadow: false },
-  low: { dpr: 0.75, shadow: 256, bloom: 0, msaa: 0, lights: 4, mirror: 256, softShadow: false },
+  high: { dpr: 1.25, shadow: 1024, bloom: 0.25, msaa: 4, lights: 6, mirror: 384, softShadow: true, moonShadows: true },
+  medium: { dpr: 1.0, shadow: 512, bloom: 0.25, msaa: 0, lights: 4, mirror: 256, softShadow: false, moonShadows: true },
+  low: { dpr: 0.7, shadow: 256, bloom: 0, msaa: 0, lights: 3, mirror: 192, softShadow: false, moonShadows: false },
 };
 
 export function createRenderer(canvas, quality = 'high') {

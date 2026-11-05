@@ -5,19 +5,21 @@ const KEY = 'ushimitsu-no-yado/v1';
 const defaults = () => ({
   clearCount: 0,
   seen: { A: false, B: false, C: false },
-  settings: { volume: 0.9, sensitivity: 1, quality: 'high' },
+  settings: { volume: 0.9, sensitivity: 1, quality: 'medium', v: 2 },
 });
 
 export function loadSave() {
   const d = defaults();
   try {
     const raw = JSON.parse(localStorage.getItem(KEY) || '{}');
-    return {
-      ...d,
-      ...raw,
-      seen: { ...d.seen, ...(raw.seen || {}) },
-      settings: { ...d.settings, ...(raw.settings || {}) },
-    };
+    const settings = { ...d.settings, ...(raw.settings || {}) };
+    // 画質の標準を「高」から「中」に変えたので、以前の保存は一度「中・自動調整あり」に戻す
+    if ((raw.settings || {}).v !== 2) {
+      settings.quality = 'medium';
+      settings.qualityAuto = true;
+      settings.v = 2;
+    }
+    return { ...d, ...raw, seen: { ...d.seen, ...(raw.seen || {}) }, settings };
   } catch (_) {
     return d;
   }
