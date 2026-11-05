@@ -7,9 +7,10 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 export const QUALITY = {
-  high: { dpr: 1.5, shadow: 1024, bloom: true, msaa: 4, lights: 8, mirror: 512 },
-  medium: { dpr: 1.0, shadow: 512, bloom: true, msaa: 2, lights: 6, mirror: 384 },
-  low: { dpr: 0.75, shadow: 256, bloom: false, msaa: 0, lights: 4, mirror: 256 },
+  // dpr: 描画解像度の上限（高精細の画面ではここが一番効く）、bloom: 光のにじみを計算する解像度の割合
+  high: { dpr: 1.25, shadow: 1024, bloom: 0.25, msaa: 4, lights: 6, mirror: 384, softShadow: true },
+  medium: { dpr: 1.0, shadow: 512, bloom: 0.25, msaa: 2, lights: 5, mirror: 256, softShadow: false },
+  low: { dpr: 0.75, shadow: 256, bloom: 0, msaa: 0, lights: 4, mirror: 256, softShadow: false },
 };
 
 export function createRenderer(canvas, quality = 'high') {
@@ -55,8 +56,10 @@ export function createRenderer(canvas, quality = 'high') {
     const rt = new THREE.WebGLRenderTarget(window.innerWidth * dpr, window.innerHeight * dpr, { type: THREE.HalfFloatType, samples: q.msaa });
     composer = new EffectComposer(renderer, rt);
     composer.addPass(new RenderPass(scene, camera));
-    bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth / 2, window.innerHeight / 2), 0.55, 0.6, 0.82);
-    bloom.enabled = q.bloom;
+    renderer.shadowMap.type = q.softShadow ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+    const bs = q.bloom || 0.25;
+    bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth * bs, window.innerHeight * bs), 0.55, 0.6, 0.82);
+    bloom.enabled = q.bloom > 0;
     composer.addPass(bloom);
     composer.addPass(new OutputPass());
     film = new ShaderPass(filmShader);
@@ -82,7 +85,7 @@ export function createRenderer(canvas, quality = 'high') {
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
     composer.setSize(window.innerWidth, window.innerHeight);
-    bloom.setSize(window.innerWidth / 2, window.innerHeight / 2);
+    bloom.setSize(window.innerWidth * (q.bloom || 0.25), window.innerHeight * (q.bloom || 0.25));
   });
 
   return {

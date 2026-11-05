@@ -417,6 +417,8 @@ function writeName() {
 // ---------------------------------------------------------------- 花札錠（HanafudaLock）
 const ANSWER = ['kikyo', 'shobu', 'tsubaki'];
 function openLock() {
+  // 最後の場面で使う影を、錠の画面を開いているあいだに用意しておく（切り替えの一瞬の引っかかりを隠す）
+  W.genkan.scareSpot.castShadow = true;
   releasePointer();
   player.lookEnabled = false;
   ui.showLock(['tsubaki', 'shobu', 'kikyo'], {

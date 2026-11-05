@@ -117,7 +117,7 @@ export function buildGenkan(ctx) {
   const scareSpot = new THREE.SpotLight(0xffa060, 0, 9, 0.55, 0.45, 1.6);
   scareSpot.position.set(8.0, 1.55, 3.3);
   scareSpot.target.position.set(9.6, 1.0, G.z1);
-  scareSpot.castShadow = true;
+  scareSpot.castShadow = false; // 花札錠を開いたときに有効にする（普段は影の計算を省く）
   scareSpot.shadow.mapSize.set(1024, 1024);
   scareSpot.userData.minShadow = 1024;
   scareSpot.shadow.camera.near = 0.3;
