@@ -30,9 +30,8 @@ jobs:
           ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
       - name: Web 版をビルド
         run: npm run build
+      # 初回だけ、リポジトリの Settings → Pages → Source を「GitHub Actions」にしておく必要がある
       - uses: actions/configure-pages@v5
-        with:
-          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
