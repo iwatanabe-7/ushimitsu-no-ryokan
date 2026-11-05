@@ -128,16 +128,16 @@ G.setQuality(save.settings.quality);
 // 二周目の差分（SecondLapSwitch）
 const okamiHit = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.6, 0.6), new THREE.MeshBasicMaterial({ visible: false }));
 okamiHit.userData = { id: 'okami', enabled: false };
-okamiHit.position.set(5.7, 0.8, 3.28);
+okamiHit.position.set(5.2, 0.8, 3.28);
 scene.add(okamiHit);
 ctx.hits.push(okamiHit);
 // 女将の影は最初はいない。二周目で娘の手紙を手に入れたあと、帳場の前に現れる
 // 帳場と玄関のあいだ、提灯（玄関寄りの一つ）に照らされる壁際に立つ。壁に横顔の影が落ちる
-okamiShadow.position.set(5.7, 0, 3.28);
+okamiShadow.position.set(5.2, 0, 3.28);
 okamiShadow.rotation.y = -Math.PI / 2;
-const OKAMI_SPOT = new THREE.Vector3(5.7, 1.0, 3.28);
+const OKAMI_SPOT = new THREE.Vector3(5.2, 1.0, 3.28);
 let okamiArrived = false;
-ctx.block.push({ c: [5.7, 3.28, 0.22 + R], when: () => okamiArrived });
+ctx.block.push({ c: [5.2, 3.28, 0.22 + R], when: () => okamiArrived });
 if (lap2) {
   W.kikyo.letter.visible = true;
   W.choba.setFigure(false);
@@ -1011,14 +1011,14 @@ function frame() {
       okamiShadow.visible = true;
       okamiHit.userData.enabled = true;
       audio.creak(OKAMI_SPOT, 0.25, 1.0);
-      // 宿じゅうの明かりが消え、影の主の奥（玄関寄り）に提灯がひとつだけ灯る。
-      // 提灯を低く奥に吊り直し、その光で女将の横顔の影を壁に大きく、くっきり落とす
+      // 宿じゅうの明かりが消え、影の主の向こう（帳場寄りの奥）に提灯がひとつだけ灯る。
+      // 桔梗の間から出てくると、手前の壁に女将の横顔の影が落ち、その奥で提灯が灯っている
       const lan = W.corridor.lanterns[2];
       for (const L of ctx.lamps) L.level = 0;
-      lan.group.position.set(7.7, 1.62, 2.12);
-      lan.lamp.pos.set(7.7, 1.55, 2.12);
-      lan.lamp.level = 2.2;
-      lan.lamp.paperBase = 2.8;
+      lan.group.position.set(3.3, 1.65, 2.25);
+      lan.lamp.pos.set(3.3, 1.58, 2.25);
+      lan.lamp.level = 2.7;
+      lan.lamp.paperBase = 1.3;
       lan.lamp.distance = 9;
       hemi.intensity = 0.18;
       W.choba.shoji.material.emissiveIntensity = 0;
