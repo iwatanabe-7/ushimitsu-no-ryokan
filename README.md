@@ -6,6 +6,12 @@
 Three.js で作り、Vite で **Web 版** と **Electron 版（Windows / Mac / Linux のアプリ）** の両方を出力します。
 画像や音声のファイルは使わず、テクスチャも効果音もすべてコードで生成しています。
 
+## 遊ぶ
+
+ブラウザ版は GitHub Pages で公開しています：https://iwatanabe-7.github.io/ushimitsu-ryokan/
+
+`main` に push すると、GitHub Actions が Web 版をビルドして自動で公開し直します（`.github/workflows/pages.yml`）。
+
 ## 必要なもの
 
 - Node.js 20 以上
