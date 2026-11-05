@@ -1011,13 +1011,20 @@ function frame() {
       okamiShadow.visible = true;
       okamiHit.userData.enabled = true;
       audio.creak(OKAMI_SPOT, 0.25, 1.0);
-      // 宿じゅうの明かりが消え、女将の影の傍の提灯だけがかすかに灯る
+      // 宿じゅうの明かりが消え、影の主の奥（玄関寄り）に提灯がひとつだけ灯る。
+      // 提灯を低く奥に吊り直し、その光で女将の横顔の影を壁に大きく、くっきり落とす
       const lan = W.corridor.lanterns[2];
       for (const L of ctx.lamps) L.level = 0;
-      lan.lamp.level = 0.45;
+      lan.group.position.set(7.7, 1.62, 2.12);
+      lan.lamp.pos.set(7.7, 1.55, 2.12);
+      lan.lamp.level = 2.2;
+      lan.lamp.paperBase = 2.8;
+      lan.lamp.distance = 9;
+      hemi.intensity = 0.18;
       W.choba.shoji.material.emissiveIntensity = 0;
       audio.snuff(player.pos.clone());
       audio.drone(4, 0.08);
+      setTimeout(() => ui.subtitle('……どこかで、提灯がひとつ灯った。', 3200), 900);
     }
   }
 
