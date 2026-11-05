@@ -8,7 +8,7 @@ Three.js で作り、Vite で **Web 版** と **Electron 版（Windows / Mac / L
 
 ## 遊ぶ
 
-ブラウザ版は GitHub Pages で公開しています：https://iwatanabe-7.github.io/ushimitsu-ryokan/
+ブラウザ版は GitHub Pages で公開しています：https://iwatanabe-7.github.io/ushimitsu-no-ryokan/
 
 `main` に push すると、GitHub Actions が Web 版をビルドして自動で公開し直します（`.github/workflows/pages.yml`）。
 
