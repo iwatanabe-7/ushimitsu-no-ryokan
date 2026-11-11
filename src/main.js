@@ -1167,6 +1167,27 @@ $('start').disabled = false;
 $('start').textContent = 'はじめる';
 
 // 動作確認用のフック
+// game-studio のハーネス用の入口（CLAUDE.md の約束）
+window.__game = {
+  state,
+  ui,
+  phase: () => state.phase,
+  act: () => act(),
+  look: (...v) => window.__inn.look(...v),
+  focus: () => focus,
+  renderer: G.renderer,
+  render: () => G.render(),
+  start: () => $('start').click(),
+  // 重さを測る代表の場面：[名前, x, z, 見る先 x, y, z]
+  views: [
+    ['椿の間', 0.6, 0.9, -0.6, 0.9, -2.2],
+    ['廊下', -1.9, 2.75, 10.0, 1.55, 2.75],
+    ['中庭', 14.9, 0.4, 12.4, -0.2, -3.6],
+    ['大広間', 14.32, 4.3, 14.32, 1.1, 10.8],
+    ['露天風呂', 19.0, -0.3, 22.2, 0.1, -3.6],
+    ['玄関', 7.2, 3.95, 8.6, 0.6, 7.2],
+  ],
+};
 window.__inn = {
   state, player, ui, act, W, save, G,
   focus: () => focus,
