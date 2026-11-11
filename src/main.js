@@ -615,6 +615,15 @@ function finish(key, title, lines, note) {
   $('reticle').hidden = true;
   save.seen[key] = true;
   if (key === 'A') save.clearCount += 1;
+  // クリア時間と、その結末の最短記録
+  const sec = playSeconds();
+  save.best = save.best || {};
+  const prevBest = save.best[key];
+  const isBest = !prevBest || sec < prevBest;
+  if (isBest) save.best[key] = sec;
+  $('endTime').textContent = `クリア時間　${formatTime(sec)}`;
+  $('endBest').textContent = isBest && prevBest ? '最短記録を更新しました' : prevBest ? `この結末の最短　${formatTime(prevBest)}` : '';
+  $('endBest').hidden = !$('endBest').textContent;
   writeSave(save);
   // 「すべて見届けた」は、三つの結末を見終えたときだけ出す
   const left = ['A', 'B', 'C'].filter((k) => !save.seen[k]).length;
@@ -685,11 +694,25 @@ function renderSeen(el) {
 }
 
 // ---------------------------------------------------------------- 一時停止と設定
+// クリア時間は、目覚めて動けるようになってからエンディングまで。一時停止のあいだは数えない
+let pausedAt = 0;
+let pausedTotal = 0;
+function playSeconds() {
+  return state.gameStart ? now() - state.gameStart - pausedTotal - (pausedAt ? now() - pausedAt : 0) : 0;
+}
+function formatTime(sec) {
+  const s = Math.max(0, Math.round(sec));
+  const m = Math.floor(s / 60);
+  return m >= 60 ? `${Math.floor(m / 60)}時間${m % 60}分${s % 60}秒` : `${m}分${String(s % 60).padStart(2, '0')}秒`;
+}
 function openPause() {
   state.paused = true;
+  if (!pausedAt) pausedAt = now();
   $('pause').hidden = false;
 }
 function closePause() {
+  if (pausedAt) pausedTotal += now() - pausedAt;
+  pausedAt = 0;
   state.paused = false;
   $('pause').hidden = true;
   player.requestLock();
