@@ -214,8 +214,10 @@ export function buildTsubaki(ctx) {
   const oshiireLamp = ctx.addLamp({ pos: new THREE.Vector3(1.95, 1.3, 0.35), color: 0xffb070, base: 1.5, distance: 2.6, kind: 'fill', zone: 'tsubaki' });
   oshiireLamp.level = 0;
   scene.add(yukata);
-  for (let i = 0; i < 4; i++) box(0.7, 0.13, 0.75, std({ color: i % 2 ? 0xbfb6a6 : 0x6a4a40, roughness: 0.95 }), 2.2, 0.12 + i * 0.135, 0.45 - (i % 2) * 0.02);
-  for (let i = 0; i < 3; i++) box(0.7, 0.14, 0.75, std({ color: 0xa89e8c, roughness: 0.95 }), 2.2, 0.85 + i * 0.145, -0.45);
+  // 畳んだ布団。手前の面を襖（x ≈ 1.88）より奥に置く。手前に出すと、閉めた襖を突き抜けて板のように見える
+  const FUTON_X = 2.25; // 奥行き 0.7 → x 1.90〜2.60（奥の壁は 2.6）
+  for (let i = 0; i < 4; i++) box(0.7, 0.13, 0.75, std({ color: i % 2 ? 0xbfb6a6 : 0x6a4a40, roughness: 0.95 }), FUTON_X, 0.12 + i * 0.135, 0.45 - (i % 2) * 0.02);
+  for (let i = 0; i < 3; i++) box(0.7, 0.14, 0.75, std({ color: 0xa89e8c, roughness: 0.95 }), FUTON_X, 0.85 + i * 0.145, -0.45);
 
   // 月光（障子越し）。部屋は動かないので影は必要なときだけ描き直す
   const moon = new THREE.SpotLight(0xa8bcff, 90, 0, 0.42, 0.55, 2);
