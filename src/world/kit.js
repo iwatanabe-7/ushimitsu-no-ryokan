@@ -166,7 +166,8 @@ export function andon(x, z, { parent = root } = {}) {
 }
 
 // 吊り提灯
-export function chochin(x, y, z, { kanji = '宿', scale = 1 } = {}) {
+// 字は場所に意味があるときだけ入れる（帳場の「帳」、大広間の「宴」など）。廊下の提灯は無地
+export function chochin(x, y, z, { kanji = null, scale = 1 } = {}) {
   const g = new THREE.Group();
   const tex = T.lanternPaper({ ribs: true, kanji });
   const paper = new THREE.Mesh(new THREE.SphereGeometry(0.17, 28, 18), std({
