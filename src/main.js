@@ -104,6 +104,8 @@ scene.add(okami);
 function showOkami(on) {
   if (!on) okami.position.y = -50;
 }
+// 床下にいるあいだは描かない（色を書かない材質でも、描画の呼び出しと影の計算は毎回かかる）
+const OKAMI_PARKED_Y = -10;
 // 鏡の中にだけ映る黒い人影
 const mirrorFigure = buildOkami({ mode: 'silhouette' });
 scene.add(mirrorFigure);
@@ -184,11 +186,16 @@ function releasePointer() {
 }
 
 window.addEventListener('keydown', (e) => {
-  if (e.target instanceof HTMLInputElement) {
-    if (e.code === 'Enter') writeName();
-    if (e.code === 'Escape') cancelName();
+  // 宿帳の名前欄だけが記帳の操作を受ける（設定のスライダーや選択欄で Enter を押しても記帳しない）
+  if (e.target === ui.el.ledgerName) {
+    if (ui.modal === 'ledger' && state.phase === 'play') {
+      if (e.code === 'Enter') writeName();
+      if (e.code === 'Escape') cancelName();
+    }
     return;
   }
+  // 設定の部品やボタンを操作しているあいだは、ゲームの操作にしない
+  if (e.target instanceof Element && e.target.closest('input, select, button, textarea')) return;
   if (e.code === 'F11') {
     e.preventDefault();
     toggleFullscreen();
@@ -214,9 +221,9 @@ $('intro').addEventListener('click', act);
 if (player.isTouch) $('touch').hidden = false;
 
 // ---------------------------------------------------------------- 時計（InnClock）
-function gameTime(now) {
+function gameTime() {
   if (!state.gameStart) return { h: 2, m: 0, s: 0, stopped: false };
-  const sec = Math.min((now - state.gameStart) * 2, 30 * 60);
+  const sec = Math.min(playSeconds() * 2, 30 * 60);
   return { h: 2, m: Math.floor(sec / 60), s: Math.floor(sec % 60), stopped: sec >= 30 * 60 };
 }
 const timeText = (t) => `${t.h}時${String(t.m).padStart(2, '0')}分`;
@@ -225,17 +232,43 @@ const timeText = (t) => `${t.h}時${String(t.m).padStart(2, '0')}分`;
 const ray = new THREE.Raycaster();
 ray.far = 2.3;
 let focus = null;
+const CENTER = new THREE.Vector2(0, 0);
+const activeHits = [];
+const rayHits = [];
 function updateFocus() {
   focus = null;
   if (state.phase !== 'play' || ui.talking || ui.modal || state.paused) return ui.setPrompt(null);
-  ray.setFromCamera({ x: 0, y: 0 }, camera);
-  const res = ray.intersectObjects(ctx.hits.filter((h) => h.userData.enabled), false);
-  if (res.length) focus = res[0].object.userData.id;
+  ray.setFromCamera(CENTER, camera);
+  activeHits.length = 0;
+  for (const h of ctx.hits) if (h.userData.enabled) activeHits.push(h);
+  rayHits.length = 0;
+  ray.intersectObjects(activeHits, false, rayHits);
+  if (rayHits.length) focus = rayHits[0].object.userData.id;
   ui.setPrompt(focus ? LABEL[focus] : null);
 }
 
 const say = (lines, done) => ui.say(lines, done);
 const now = () => performance.now() / 1000;
+
+// 演出のタイマー：一時停止中とタブが裏にあるあいだは止まるゲーム内時間（gclock）で進める。
+// setTimeout だと一時停止メニューの裏で文章が出たり、戻ったときに演出が飛んだりする
+let gclock = 0;
+const timers = [];
+function later(fn, ms) {
+  timers.push({ at: gclock + ms / 1000, fn });
+}
+function runTimers(dt) {
+  gclock += dt;
+  // 実行中に later() で足されたものは次のフレームに回す
+  for (let i = 0, n = timers.length; i < n; ) {
+    if (timers[i].at <= gclock) {
+      const { fn } = timers[i];
+      timers.splice(i, 1);
+      n--;
+      fn();
+    } else i++;
+  }
+}
 
 function give(id, name, draw, flag) {
   state[flag] = true;
@@ -252,7 +285,7 @@ function act() {
   switch (focus) {
     // 椿の間
     case 'clock': {
-      const t = gameTime(now());
+      const t = gameTime();
       return say(t.stopped ? MSG.clockStopped : MSG.clock(timeText(t)));
     }
     case 'door':
@@ -267,7 +300,7 @@ function act() {
       state.oshiireOpen = true;
       T.H.oshiire.userData.enabled = false;
       audio.slide(new THREE.Vector3(1.8, 0.9, 0.3), 0.8, 0.3);
-      setTimeout(() => {
+      later(() => {
         T.H.oshiireInner.userData.enabled = true;
         T.H.yukata.userData.enabled = true;
       }, 700);
@@ -278,7 +311,7 @@ function act() {
       state.hasKey = true;
       return say(MSG.yukata, () => {
         ui.addItem('key', '廊下の鍵', drawKeyIcon);
-        setTimeout(passingShadow, 1600);
+        later(passingShadow, 1600);
       });
     case 'card':
       T.card.visible = false;
@@ -294,7 +327,7 @@ function act() {
       if (lap2 || state.ledgerSeen) return say(MSG.chobaShojiEmpty);
       return say(MSG.chobaShoji);
     case 'pillarClock': {
-      const t = gameTime(now());
+      const t = gameTime();
       return say(t.stopped ? MSG.pillarClockStopped : MSG.pillarClock(timeText(t)));
     }
 
@@ -319,7 +352,7 @@ function act() {
         audio.unlock(K.doorPos);
         state.kikyoOpen = true;
         K.H.kikyoDoor.userData.enabled = false;
-        setTimeout(() => audio.slide(K.doorPos, 1.2, 0.35), 500);
+        later(() => audio.slide(K.doorPos, 1.2, 0.35), 500);
       });
     }
     case 'kikyoDesk':
@@ -410,6 +443,7 @@ function cancelName() {
   ui.showLedger(ledgerEntries({ lap2 }), { canSign: true, onClose: closeLedger });
 }
 function writeName() {
+  if (state.phase !== 'play') return; // Enter の連打で二度記帳しない
   const name = ui.el.ledgerName.value.trim() || '名無し';
   ui.hideLedger();
   endingB(name.slice(0, 8));
@@ -457,12 +491,16 @@ let shadowPass = -1;
 function passingShadow() {
   shadowPass = now();
   audio.creak(new THREE.Vector3(2.5, 0.2, 2.6), 0.3, 0.9);
-  for (let i = 0; i < 6; i++) setTimeout(() => audio.stepWood(new THREE.Vector3(2.6 - i, 0, 2.7), 0.45), 700 + i * 640);
+  for (let i = 0; i < 6; i++) later(() => audio.stepWood(new THREE.Vector3(2.6 - i, 0, 2.7), 0.45), 700 + i * 640);
 }
 
 let flashUntil = 0;
 // 驚かせ1：鏡台を調べると、鏡に女将の黒い影が0.5秒映る。振り向いても誰もいない
 function mirrorScare() {
+  // 文章の連打で二度起こさない
+  if (state.mirrorSeen) return;
+  state.mirrorSeen = true;
+  W.shobu.H.mirror.userData.enabled = false; // 人影が消えて文章が出るまでは鏡台を調べられない
   const f = new THREE.Vector3(-Math.sin(player.yaw), 0, -Math.cos(player.yaw));
   const side = new THREE.Vector3(-f.z, 0, f.x);
   mirrorFigure.position.copy(player.pos).addScaledVector(f, -1.05).addScaledVector(side, 0.12);
@@ -477,12 +515,12 @@ function mirrorScare() {
   audio.breath(okami.position.clone().setY(1.4), 0.25);
   audio.drone(3, 0.1);
   flashUntil = now() + 0.5;
-  setTimeout(() => {
+  later(() => {
     mirrorFigureOn = false;
     W.shobu.andonLamp.level = 1;
     showOkami(false);
-    setTimeout(() => {
-      state.mirrorSeen = true;
+    later(() => {
+      W.shobu.H.mirror.userData.enabled = true;
       say(MSG.mirrorAfter);
     }, 500);
   }, 500);
@@ -492,8 +530,8 @@ function mirrorScare() {
 function clapScare() {
   const at = W.hiroma.stagePos;
   W.hiroma.lamps.forEach((l) => (l.level = 0.35));
-  [900, 1900, 2900].forEach((ms) => setTimeout(() => audio.burst(at, { type: 'bandpass', freq: 1500, q: 1.2, dur: 0.09, gain: 0.7 }), ms));
-  setTimeout(() => {
+  [900, 1900, 2900].forEach((ms) => later(() => audio.burst(at, { type: 'bandpass', freq: 1500, q: 1.2, dur: 0.09, gain: 0.7 }), ms));
+  later(() => {
     W.hiroma.lamps.forEach((l) => (l.level = 1));
     say(MSG.claps);
   }, 3900);
@@ -507,18 +545,18 @@ function lanternScare() {
   ui.cinema(true);
   const lan = W.corridor.lanterns;
   [3, 2, 1, 0].forEach((idx, k) => {
-    setTimeout(() => {
+    later(() => {
       lan[idx].lamp.level = 0;
       lan[idx].paper.material.emissiveIntensity = 0;
       audio.snuff(lan[idx].lamp.pos);
     }, 600 + k * 700);
   });
-  setTimeout(() => ui.caption(MSG.kikyoScare[0]), 3200);
+  later(() => ui.caption(MSG.kikyoScare[0]), 3200);
   const end = walkingFootsteps(4400);
-  setTimeout(() => ui.caption(MSG.walkerFar), 4600);
-  setTimeout(() => ui.caption(MSG.walkerNear), end - 4200);
-  setTimeout(() => ui.caption(MSG.walkerIn), end + 1400);
-  setTimeout(() => {
+  later(() => ui.caption(MSG.walkerFar), 4600);
+  later(() => ui.caption(MSG.walkerNear), end - 4200);
+  later(() => ui.caption(MSG.walkerIn), end + 1400);
+  later(() => {
     ui.cinema(false);
     state.phase = 'play';
     state.lanternsOut = true;
@@ -538,7 +576,7 @@ function walkingFootsteps(start) {
   }
   pts.push(route[route.length - 1]);
   pts.forEach(([x, z], i) => {
-    setTimeout(() => {
+    later(() => {
       const pos = new THREE.Vector3(x, 0, z);
       if (z > 3.6) audio.burst(pos, { type: 'lowpass', freq: 650, q: 0.6, dur: 0.18, gain: 0.5, attack: 0.03 }); // 畳
       else audio.stepWood(pos, 0.55);
@@ -558,18 +596,18 @@ function genkanScare() {
   const Gk = W.genkan;
   audio.unlock(Gk.lockPos);
   // 一歩下がって、錠の脇の壁を見る
-  setTimeout(() => {
+  later(() => {
     const to = new THREE.Vector3(9.2, 0, 6.15);
     const target = new THREE.Vector3(9.6, 0.95, 7.4);
     const dx = target.x - to.x, dz = target.z - to.z;
     camAnim = {
-      t0: now(), dur: 1.4, from: player.pos.clone(), to: to.setY(player.pos.y),
+      t0: gclock, dur: 1.4, from: player.pos.clone(), to: to.setY(player.pos.y),
       fromYaw: player.yaw, toYaw: player.yaw + (((Math.atan2(-dx, -dz) - player.yaw + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI),
       fromPitch: player.pitch, toPitch: Math.atan2(target.y - EYE - player.floorY, Math.hypot(dx, dz)),
     };
   }, 500);
   // 灯りが細り、背後に影の主が立つ
-  setTimeout(() => {
+  later(() => {
     Gk.domaLamp.level = 0.12;
     Gk.lanternLamp.level = 0.18;
     audio.snuff(Gk.lanternLamp.pos);
@@ -580,29 +618,29 @@ function genkanScare() {
     okami.rotation.y = Math.atan2(dir.x, dir.z);
     sp.shadow.autoUpdate = true;
     // 影をはっきり見せる：壁を強く照らし、周りの薄明かりを落として影を黒く、輪郭を鋭くする
-    scareRamp = { t0: now(), from: 0, to: 32, dur: 1.4 };
+    scareRamp = { t0: gclock, from: 0, to: 32, dur: 1.4 };
     hemi.intensity = 0.12;
     Gk.domaLamp.level = 0;
     Gk.lanternLamp.level = 0.05;
     audio.creak(okami.position.clone().setY(0.2), 0.2, 0.6);
   }, 2100);
-  setTimeout(() => {
+  later(() => {
     audio.voice(MSG.okamiVoice);
     ui.subtitle(`「${MSG.okamiVoice}」`, 2400);
     audio.breath(okami.position.clone().setY(1.4), 0.2);
   }, 4200);
-  setTimeout(() => {
-    turnAnim = { t0: now(), from: player.yaw, to: player.yaw + Math.PI, fromPitch: player.pitch, dur: 1.5 };
+  later(() => {
+    turnAnim = { t0: gclock, from: player.yaw, to: player.yaw + Math.PI, fromPitch: player.pitch, dur: 1.5 };
   }, 5600);
   // 振り向く途中で影は消える
-  setTimeout(() => {
+  later(() => {
     showOkami(false);
-    scareRamp = { t0: now(), from: W.genkan.scareSpot.intensity, to: 0, dur: 0.4 };
+    scareRamp = { t0: gclock, from: W.genkan.scareSpot.intensity, to: 0, dur: 0.4 };
   }, 6300);
-  setTimeout(() => {
+  later(() => {
     G.film.uniforms.fade.value = 1;
     audio.drone(4, 0.12);
-    setTimeout(endingA, 1800);
+    later(endingA, 1800);
   }, 7600);
 }
 let scareRamp = null;
@@ -661,16 +699,16 @@ function endingB(name) {
   player.lookEnabled = false;
   fadeOut(1.6, () => {
     ui.subtitle(MSG.endB[0], 2200);
-    setTimeout(() => {
+    later(() => {
       audio.voice('ようこそ、おいでくださいました');
       ui.subtitle(MSG.endB[1], 3000);
     }, 2300);
-    setTimeout(() => {
+    later(() => {
       const rows = ledgerEntries({ lap2 });
       rows[rows.length - 1] = { ...rows[rows.length - 1], name, blank: false, fresh: true };
       rows.push({ date: '今宵', room: '椿の間', mark: null, name: '', blank: true });
       ui.showLedger(rows, { caption: MSG.endBLedger });
-      setTimeout(() => {
+      later(() => {
         ui.hideLedger();
         finish('B', '終　宿に残る', [`宿帳には、「${name}」の名前が残った。`]);
       }, 5200);
@@ -711,6 +749,7 @@ function openPause() {
   $('pause').hidden = false;
 }
 function closePause() {
+  document.activeElement?.blur?.(); // 設定の部品にフォーカスを残さない（矢印キーで値が変わるのを防ぐ）
   if (pausedAt) pausedTotal += now() - pausedAt;
   pausedAt = 0;
   state.paused = false;
@@ -754,10 +793,16 @@ qual.addEventListener('change', () => {
 });
 applyQuality(save.settings.quality);
 
-// 画質の自動調整：遊び始めの数秒の速さを測り、重ければ一段ずつ下げる
-const fpsProbe = { t0: 0, frames: 0 };
-function autoQuality(t) {
-  if (save.settings.qualityAuto === false || state.phase !== 'play') return;
+// 画質の自動調整：遊び始めの数秒の速さを測り、重ければ一段ずつ下げる。
+// 測るのは操作できている時間だけ。タブを離れた・一時停止した・文章を読んでいるあいだは測り直す
+const fpsProbe = { t0: 0, frames: 0, samples: 0, slow: 0 };
+const PROBE_SAMPLES = 4; // 3秒ずつ、最初の 12 秒だけ測る
+const resetProbe = () => (fpsProbe.t0 = 0);
+document.addEventListener('visibilitychange', resetProbe);
+function autoQuality(t, rawDt) {
+  // ハーネスで動かしているときは、計測がぶれないよう自動では変えない
+  if (save.settings.qualityAuto === false || window.__harness || fpsProbe.samples >= PROBE_SAMPLES) return;
+  if (state.phase !== 'play' || state.paused || ui.talking || ui.modal || document.hidden || rawDt > 1) return resetProbe();
   if (!fpsProbe.t0) {
     fpsProbe.t0 = t;
     fpsProbe.frames = 0;
@@ -769,9 +814,14 @@ function autoQuality(t) {
   const fps = fpsProbe.frames / span;
   fpsProbe.t0 = t;
   fpsProbe.frames = 0;
+  fpsProbe.samples++;
+  // 一度だけの引っかかりでは下げない。二回続けて遅かったときだけ一段下げる
+  fpsProbe.slow = fps < 45 ? fpsProbe.slow + 1 : 0;
   const order = ['high', 'medium', 'low'];
   const i = order.indexOf(save.settings.quality);
-  if (fps < 45 && i < 2) {
+  if (fpsProbe.slow >= 2 && i < 2) {
+    fpsProbe.slow = 0;
+    fpsProbe.samples = Math.max(0, fpsProbe.samples - 2); // 下げた画質でも測り直す
     save.settings.quality = order[i + 1];
     qual.value = save.settings.quality;
     applyQuality(save.settings.quality);
@@ -876,8 +926,13 @@ const LINKS = [
   ['watari', 'datsui', () => state.yudonoAnim > 0.01],
   ['datsui', 'roten', () => true],
 ];
+const ANIM_KEYS = ['doorAnim', 'oshiireAnim', 'shobuAnim', 'kikyoAnim', 'hiromaAnim', 'yudonoAnim'];
+// 毎フレーム呼ぶので、同じ Set を使い回す（呼んだ側は次のフレームまでに使い終える）
+const visSet = new Set();
 function visibleZones(zone) {
-  const v = new Set([zone]);
+  const v = visSet;
+  v.clear();
+  v.add(zone);
   for (const [a, b, ok] of LINKS) {
     if (!ok()) continue;
     if (a === zone) v.add(b);
@@ -887,6 +942,8 @@ function visibleZones(zone) {
 }
 
 let shadowLamp = null;
+const rankScore = [];
+const rankLamp = [];
 let lastShadowLamp = undefined;
 let lastShadowAt = 0;
 let lastTick = -1;
@@ -902,6 +959,10 @@ function frame() {
   requestAnimationFrame(frame);
   const t = now();
   const dt = Math.min(0.05, t - prev);
+  // 一時停止中はゲーム内時間を進めない。タブが裏にあって間が空いても、一度に進めるのは 0.25 秒まで
+  // （とても重い端末でも演出が止まらないよう、長いフレームは捨てずに切り詰める）
+  const rawDt = t - prev;
+  runTimers(state.paused ? 0 : Math.min(rawDt, 0.25));
   prev = t;
   G.film.uniforms.time.value = t;
   G.film.uniforms.flash.value = t < flashUntil ? 1 : Math.max(0, G.film.uniforms.flash.value - dt * 3);
@@ -936,20 +997,39 @@ function frame() {
   if (forcedLamp && forcedLamp.vis > 0.3) best = forcedLamp;
   shadowLamp = best;
   // 影を落とす灯り以外を、明るく近い順に光源へ割り当てる
-  const ranked = ctx.lamps
-    .filter((L) => L !== best && L.now > 0.02)
-    .map((L) => ({ L, s: L.now / Math.max(1, L.pos.distanceToSquared(player.pos)) }))
-    .sort((a, b) => b.s - a.s);
-  pool.forEach((light, i) => {
-    const L = ranked[i]?.L;
-    if (!L) return void (light.intensity = 0);
+  // 上位 pool.length 個だけを挿入ソートで選ぶ（毎フレーム配列を作らない）
+  let nRank = 0;
+  for (const L of ctx.lamps) {
+    if (L === best || L.now <= 0.02) continue;
+    const sc = L.now / Math.max(1, L.pos.distanceToSquared(player.pos));
+    let j = Math.min(nRank, pool.length);
+    if (j === pool.length && sc <= rankScore[j - 1]) continue;
+    if (j === pool.length) j--;
+    else nRank++;
+    while (j > 0 && rankScore[j - 1] < sc) {
+      rankScore[j] = rankScore[j - 1];
+      rankLamp[j] = rankLamp[j - 1];
+      j--;
+    }
+    rankScore[j] = sc;
+    rankLamp[j] = L;
+  }
+  for (let i = 0; i < pool.length; i++) {
+    const light = pool[i];
+    if (i >= nRank) {
+      light.intensity = 0;
+      continue;
+    }
+    const L = rankLamp[i];
     light.position.copy(L.pos);
     light.color.setHex(L.color);
     light.intensity = L.now;
     light.distance = L.distance ?? 6;
-  });
-  const animating = ['doorAnim', 'oshiireAnim', 'shobuAnim', 'kikyoAnim', 'hiromaAnim', 'yudonoAnim'].some((k) => state[k] > 0 && state[k] < 1);
-  if (best !== lastShadowLamp || animating || okami.position.y > -10) {
+  }
+  let animating = false;
+  for (const k of ANIM_KEYS) if (state[k] > 0 && state[k] < 1) animating = true;
+  okami.visible = okami.position.y > OKAMI_PARKED_Y;
+  if (best !== lastShadowLamp || animating || okami.visible) {
     shadowLight.shadow.needsUpdate = true;
     lastShadowLamp = best;
     lastShadowAt = t;
@@ -996,14 +1076,27 @@ function frame() {
   if (vis.has('garden')) W.watari.pond.userData.update(t);
 
   // 時計
-  const gt = gameTime(t);
+  const gt = gameTime();
+  const played = playSeconds();
   const stamp = gt.m * 60 + gt.s;
+  // 文字盤の描き直し（canvas → テクスチャ転送）は、その部屋が見えている時計だけ
   if (stamp !== lastDrawn) {
     lastDrawn = stamp;
-    ctx.clockFaces.forEach((f) => f.draw(gt.h, gt.m, gt.s));
+    for (const f of ctx.clockFaces) {
+      if (f.stamp === stamp || (f.zone && !vis.has(f.zone))) continue;
+      f.stamp = stamp;
+      f.draw(gt.h, gt.m, gt.s);
+    }
+  }
+  // 見えていなかった時計が見えるようになったら、その場で今の時刻に合わせる
+  else for (const f of ctx.clockFaces) {
+    if (f.stamp !== stamp && (!f.zone || vis.has(f.zone))) {
+      f.stamp = stamp;
+      f.draw(gt.h, gt.m, gt.s);
+    }
   }
   if (state.gameStart && !gt.stopped) {
-    const half = Math.floor((t - state.gameStart) * 2);
+    const half = Math.floor(played * 2);
     if (half !== lastTick) {
       lastTick = half;
       for (const src of ctx.tickSources) {
@@ -1012,7 +1105,7 @@ function frame() {
       }
     }
   }
-  for (const src of ctx.tickSources) if (src.pendulum) src.pendulum.rotation.z = gt.stopped ? 0 : Math.sin((t - state.gameStart) * Math.PI) * 0.16;
+  for (const src of ctx.tickSources) if (src.pendulum) src.pendulum.rotation.z = gt.stopped ? 0 : Math.sin(played * Math.PI) * 0.16;
 
   // 揺れる物
   for (const s of ctx.sway) {
@@ -1051,7 +1144,7 @@ function frame() {
       W.choba.shoji.material.emissiveIntensity = 0;
       audio.snuff(player.pos.clone());
       audio.drone(4, 0.08);
-      setTimeout(() => ui.subtitle('……どこかで、提灯がひとつ灯った。', 3200), 900);
+      later(() => ui.subtitle('……どこかで、提灯がひとつ灯った。', 3200), 900);
     }
   }
 
@@ -1069,19 +1162,19 @@ function frame() {
       zoneEvents(zone);
     }
     if (camAnim) {
-      const k = ease(Math.min(1, (t - camAnim.t0) / camAnim.dur));
+      const k = ease(Math.min(1, (gclock - camAnim.t0) / camAnim.dur));
       player.pos.lerpVectors(camAnim.from, camAnim.to, k);
       player.yaw = lerp(camAnim.fromYaw, camAnim.toYaw, k);
       player.pitch = lerp(camAnim.fromPitch, camAnim.toPitch, k);
       if (k >= 1) camAnim = null;
     }
     if (scareRamp) {
-      const k = Math.min(1, (t - scareRamp.t0) / scareRamp.dur);
+      const k = Math.min(1, (gclock - scareRamp.t0) / scareRamp.dur);
       W.genkan.scareSpot.intensity = lerp(scareRamp.from, scareRamp.to, k);
       if (k >= 1) scareRamp = null;
     }
     if (turnAnim) {
-      const k = Math.min(1, (t - turnAnim.t0) / turnAnim.dur);
+      const k = Math.min(1, (gclock - turnAnim.t0) / turnAnim.dur);
       player.yaw = lerp(turnAnim.from, turnAnim.to, ease(k));
       player.pitch = lerp(turnAnim.fromPitch, 0.08, ease(k));
     }
@@ -1091,13 +1184,13 @@ function frame() {
   }
 
   // ときどき、どこかで襖がきしむ
-  if (state.phase === 'play' && t - state.gameStart > nextCreak) {
-    nextCreak = t - state.gameStart + (state.lanternsOut ? 25 : 45) + Math.random() * 30;
+  if (state.phase === 'play' && played > nextCreak) {
+    nextCreak = played + (state.lanternsOut ? 25 : 45) + Math.random() * 30;
     const x = CORRIDOR.x0 + Math.random() * (CORRIDOR.x1 - CORRIDOR.x0);
     audio.creak(new THREE.Vector3(x, 1.0, 2.7), 0.18, 0.8);
   }
 
-  autoQuality(t);
+  autoQuality(t, rawDt);
   updateFocus();
   audio.updateListener(camera);
   G.render();
@@ -1152,7 +1245,7 @@ function zoneEvents(zone) {
       // 場所に入っただけでは字幕を出さない（文章は調べたときだけ）
       if (zone === 'take') {
         // 竹の間に入ると、背後の廊下を小さな足音が走り抜ける（音だけ）
-        for (let i = 0; i < 6; i++) setTimeout(() => audio.stepWood(new THREE.Vector3(-5.8, 2.75, 9.2 - i * 1.2), 0.6), 900 + i * 230);
+        for (let i = 0; i < 6; i++) later(() => audio.stepWood(new THREE.Vector3(-5.8, 2.75, 9.2 - i * 1.2), 0.6), 900 + i * 230);
       }
     }
   }
@@ -1178,6 +1271,9 @@ window.__game = {
   renderer: G.renderer,
   render: () => G.render(),
   start: () => $('start').click(),
+  startSelector: '#start',
+  clock: () => gclock, // 演出が進むゲーム内時間（秒）。一時停止中は止まる
+  ready: () => !$('start').disabled,
   // 重さを測る代表の場面：[名前, x, z, 見る先 x, y, z]
   views: [
     ['椿の間', 0.6, 0.9, -0.6, 0.9, -2.2],

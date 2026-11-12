@@ -174,6 +174,7 @@ export function buildTsubaki(ctx) {
   glass.position.set(0, 0.11, 0.043);
   clock.add(glass);
   scene.add(clock);
+  face.zone = 'tsubaki'; // この部屋が見えているときだけ文字盤を描き直す
   ctx.clockFaces.push(face);
   ctx.tickSources.push({ pos: new THREE.Vector3(CLOCK.x, 0.12, CLOCK.z), kind: 'small' });
 

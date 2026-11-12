@@ -160,6 +160,7 @@ export function buildBath(ctx) {
         sp.position.set(u.ox + Math.sin(t * 0.3 + u.seed) * 0.2, -0.1 + life * 1.8, u.oz);
         sp.scale.setScalar(0.6 + life * 1.4);
         sp.material.opacity = show ? Math.sin(life * Math.PI) * 0.16 : 0;
+        sp.visible = show; // 見えない湯気は描かない（透明度 0 でも描画の呼び出しはかかる）
       }
       leaves.forEach((l, i) => (l.position.y = -0.195 + Math.sin(t * 0.8 + i) * 0.006));
     },

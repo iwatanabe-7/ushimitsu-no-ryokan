@@ -26,7 +26,7 @@ export function createRenderer(canvas, quality = 'high') {
   const camera = new THREE.PerspectiveCamera(68, window.innerWidth / window.innerHeight, 0.03, 140);
   camera.rotation.order = 'YXZ';
 
-  let composer, bloom, film, q;
+  let composer, bloom, film, q, qName;
   const filmShader = {
     uniforms: { tDiffuse: { value: null }, time: { value: 0 }, fade: { value: 1 }, flash: { value: 0 } },
     vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
@@ -46,13 +46,24 @@ export function createRenderer(canvas, quality = 'high') {
       }`,
   };
 
+  // 画質が変わったときだけ描画の段取り（composer）を作り直す。同じ画質なら影の解像度だけ合わせる
   function build(qualityName) {
-    q = QUALITY[qualityName] || QUALITY.high;
+    const name = QUALITY[qualityName] ? qualityName : 'high';
+    if (name !== qName || !composer) buildComposer(name);
+    applyShadowSize();
+  }
+  function buildComposer(name) {
+    qName = name;
+    q = QUALITY[name];
     const dpr = Math.min(window.devicePixelRatio || 1, q.dpr);
     renderer.setPixelRatio(dpr);
     renderer.setSize(window.innerWidth, window.innerHeight);
     const prevFade = film ? film.uniforms.fade.value : 1;
-    composer?.dispose?.();
+    // 前の段取りの GPU 資源を残さない（composer.dispose は自分の描画先しか消さないので、各パスも消す）
+    if (composer) {
+      for (const p of composer.passes) p.dispose?.();
+      composer.dispose();
+    }
     const rt = new THREE.WebGLRenderTarget(window.innerWidth * dpr, window.innerHeight * dpr, { type: THREE.HalfFloatType, samples: q.msaa });
     composer = new EffectComposer(renderer, rt);
     composer.addPass(new RenderPass(scene, camera));
@@ -65,7 +76,11 @@ export function createRenderer(canvas, quality = 'high') {
     film = new ShaderPass(filmShader);
     film.uniforms.fade.value = prevFade;
     composer.addPass(film);
-    // 影の解像度
+    // addPass がブルームを描画解像度（dpr 込み）に合わせてしまうので、意図した割合に戻す
+    bloom.setSize(window.innerWidth * bs, window.innerHeight * bs);
+  }
+  // 影の解像度
+  function applyShadowSize() {
     scene.traverse((o) => {
       if (o.isLight && o.castShadow && o.shadow) {
         const size = Math.max(q.shadow, o.userData.minShadow || 0);

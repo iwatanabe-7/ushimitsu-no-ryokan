@@ -126,6 +126,7 @@ export function buildChoba(ctx) {
   glass.position.set(0, -0.15, 0.066);
   pc.add(glass);
   scene.add(pc);
+  face.zone = 'choba'; // この部屋が見えているときだけ文字盤を描き直す
   ctx.clockFaces.push(face);
   const pillarClockPos = new THREE.Vector3(B.x1 - 0.1, 1.55, 4.35);
   ctx.tickSources.push({ pos: pillarClockPos, kind: 'pillar', pendulum: pend });
