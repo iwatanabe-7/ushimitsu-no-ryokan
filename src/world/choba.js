@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import * as T from '../core/textures.js';
 import { std, M, box, slab, wall, hitBox, ceiling, andon, post, chochin } from './kit.js';
 import { WT, CHOBA as B, R } from './layout.js';
+import { cardMaterials } from './tsubaki.js';
 
 export function buildChoba(ctx) {
   const { scene, hits } = ctx;
@@ -76,13 +77,31 @@ export function buildChoba(ctx) {
   soroban.position.set(-0.05, PH + 0.345, 5.12);
   scene.add(soroban);
 
+  // 帳場机の上、女将の宿帳の横に、客に貸す手燭（拾うと手に持つ。火は行灯から移す）
+  const teshoku = new THREE.Group();
+  const brass = std({ color: 0x6a4a24, roughness: 0.4, metalness: 0.5 });
+  const dish = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.042, 0.012, 20), brass);
+  dish.position.y = 0.006;
+  teshoku.add(dish);
+  const grip = new THREE.Mesh(new THREE.TorusGeometry(0.018, 0.004, 8, 14), brass);
+  grip.position.set(0.055, 0.006, 0);
+  grip.rotation.x = Math.PI / 2;
+  teshoku.add(grip);
+  const wax = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.012, 0.07, 12), std({ color: 0xd8c8a0, roughness: 0.7 }));
+  wax.position.y = 0.047;
+  teshoku.add(wax);
+  teshoku.traverse((o) => o.isMesh && (o.castShadow = o.receiveShadow = true));
+  teshoku.position.set(0.7, PH + 0.3375, 5.38); // 机の天板の上。宿帳（x 0.3）・硯（x 0.68, 手前）の奥
+  teshoku.rotation.y = 0.6;
+  scene.add(teshoku);
+
   // 行灯
   const a = andon(-0.75, 5.7, {});
   a.group.position.y = PH;
   ctx.addLamp({ pos: new THREE.Vector3(-0.75, PH + 0.5, 5.7), color: 0xff9447, base: 3.2, paper: a.paper.material, paperBase: 1.4, kind: 'andon', zone: 'choba' });
 
   // 帳場の前の掛け提灯
-  const hl = chochin(0.3, 1.85, 4.15, { kanji: '帳' });
+  const hl = chochin(0.3, 1.85, 4.15);
   ctx.addLamp({ pos: new THREE.Vector3(0.3, 1.8, 4.15), color: 0xff8a40, base: 3.4, distance: 6, paper: hl.paper.material, paperBase: 1.6, kind: 'lantern', zone: 'choba' });
   ctx.sway.push({ mesh: hl.group, seed: 3.3, lantern: true });
 
@@ -131,8 +150,27 @@ export function buildChoba(ctx) {
   const pillarClockPos = new THREE.Vector3(B.x1 - 0.1, 1.55, 4.35);
   ctx.tickSources.push({ pos: pillarClockPos, kind: 'pillar', pendulum: pend });
 
+  // 札掛け（西の壁）。今宵お迎えする三組の花札が、その順に掛かっている。順は遊ぶたびに変わる（花札錠の答え）
+  const FK = { x: B.x0 + 0.02, y: 1.45, z: 4.3, w: 0.62, h: 0.39 };
+  const fuda = new THREE.Group();
+  fuda.position.set(FK.x, FK.y, FK.z);
+  fuda.rotation.y = Math.PI / 2;
+  const fkTex = T.fudakakeTexture();
+  box(FK.w, FK.h, 0.025, [M.dark, M.dark, M.dark, M.dark, std({ map: fkTex, emissiveMap: fkTex, emissive: 0xffffff, emissiveIntensity: 0.12, roughness: 0.7 }), M.dark], 0, 0, 0.0125, { parent: fuda });
+  ctx.state.lockOrder.forEach((kind, i) => {
+    const x = FK.w * (-0.3 + i * 0.3);
+    box(0.012, 0.012, 0.03, M.brass, x, -0.004, 0.04, { parent: fuda, cast: false }); // 掛け釘（番号の下、札の上）
+    const c = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.004, 0.128), cardMaterials(kind));
+    c.rotation.x = Math.PI / 2;
+    c.position.set(x, -0.075, 0.03);
+    fuda.add(c);
+  });
+  scene.add(fuda);
+
   const H = {
+    fudakake: hitBox(hits, 'fudakake', 0.3, 0.5, FK.w + 0.1, FK.x + 0.1, FK.y, FK.z),
     ledger: hitBox(hits, 'ledger', 0.6, 0.3, 0.45, 0.3, PH + 0.4, 5.12),
+    teshoku: hitBox(hits, 'teshoku', 0.18, 0.2, 0.2, 0.7, PH + 0.42, 5.38),
     soroban: hitBox(hits, 'soroban', 0.36, 0.15, 0.16, -0.05, PH + 0.38, 5.12),
     chobaShoji: hitBox(hits, 'chobaShoji', sx1 - sx0, 1.7, 0.1, (sx0 + sx1) / 2, 1.15, B.z1 - 0.03),
     pillarClock: hitBox(hits, 'pillarClock', 0.2, 0.8, 0.4, B.x1 - 0.1, 1.55, 4.35),
@@ -141,5 +179,5 @@ export function buildChoba(ctx) {
   ctx.walk.push({ r: [B.open[0] + R, B.open[1] - R, 3.2, 3.95] });
   ctx.walk.push({ r: [B.x0 + R, B.x1 - R, 3.84, PZ - R] });
   ctx.zones.push({ name: 'choba', r: [B.x0, B.x1, B.z0 - WT + 0.06, B.z1] });
-  return { H, setFigure, shoji, pillarClockPos, ledgerPos: new THREE.Vector3(0.3, 0.7, 5.12) };
+  return { H, setFigure, shoji, pillarClockPos, teshoku, ledgerPos: new THREE.Vector3(0.3, 0.7, 5.12) };
 }

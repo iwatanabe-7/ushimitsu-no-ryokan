@@ -128,7 +128,7 @@ export function buildHiroma(ctx) {
 
   // 舞台の前に吊った提灯
   for (const x of [13.1, 15.54]) {
-    const l = chochin(x, 2.25, 9.25, { kanji: '宴' });
+    const l = chochin(x, 2.25, 9.25);
     lamps.push(ctx.addLamp({ pos: new THREE.Vector3(x, 2.15, 9.25), color: 0xff9040, base: 3.6, distance: 6, paper: l.paper.material, paperBase: 1.6, kind: 'lantern', zone: 'hiroma' }));
     ctx.sway.push({ mesh: l.group, seed: x, lantern: true });
   }

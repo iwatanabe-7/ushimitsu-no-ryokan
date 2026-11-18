@@ -191,6 +191,7 @@ body.talk #msgText { text-shadow: 0 0 8px #000, 0 0 2px #000; }
 #inv { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); display: flex; gap: 0.6rem; z-index: 2; pointer-events: none; }
 .item { display: grid; justify-items: center; gap: 0.25rem; font-size: 0.68rem; color: var(--washi-dim); letter-spacing: 0.1em; opacity: 0; transform: translateY(8px); transition: opacity 0.6s, transform 0.6s; }
 .item.in { opacity: 1; transform: none; }
+.item[data-id="letter"] { pointer-events: auto; cursor: pointer; } /* 押すと読み返せる */
 .item canvas { width: 32px; height: 48px; background: rgba(11, 9, 8, 0.6); border: 1px solid rgba(232, 223, 203, 0.18); }
 
 /* 宿帳：右から左へ読む見開き */
@@ -242,6 +243,37 @@ body.talk #msgText { text-shadow: 0 0 8px #000, 0 0 2px #000; }
 #ledgerName:focus-visible { outline: 1px solid var(--tsubaki); }
 #ledgerSign { border-color: var(--tsubaki); }
 #ledgerCaption { margin: 0; font-size: 1rem; letter-spacing: 0.2em; color: var(--washi); }
+
+/* 娘の手紙（縦書きの便箋。右から左へ読む） */
+#letterView { display: flex; justify-content: center; align-items: center; z-index: 6; background: rgba(5, 4, 3, 0.82); box-sizing: border-box; padding: 12px max(16px, env(safe-area-inset-right, 0px)) 12px max(16px, env(safe-area-inset-left, 0px)); }
+.letter-wrap { display: grid; gap: 0.9rem; justify-items: center; max-width: 100%; max-height: 100%; }
+.letter-paper {
+  writing-mode: vertical-rl;
+  box-sizing: border-box;
+  height: min(30rem, 72vh);
+  max-width: min(46rem, calc(100vw - 32px));
+  overflow-x: auto;
+  padding: 2rem 2.2rem;
+  color: #2a2018;
+  font-size: clamp(0.95rem, 2.4vh, 1.15rem);
+  line-height: 2.1;
+  letter-spacing: 0.14em;
+  /* 罫線と、水でにじんだ染み（紙がじっとりと湿っている） */
+  background:
+    radial-gradient(ellipse 22% 16% at 72% 78%, rgba(90, 70, 50, 0.22), transparent 70%),
+    radial-gradient(ellipse 14% 24% at 18% 30%, rgba(90, 70, 50, 0.16), transparent 70%),
+    repeating-linear-gradient(to left, transparent 0 2.05em, rgba(150, 60, 40, 0.18) 2.05em 2.1em),
+    radial-gradient(ellipse at 50% 40%, #ebe2c9, #cfc19c 95%);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.75), inset 0 0 50px rgba(100, 70, 30, 0.3);
+  animation: letterIn 0.9s ease both;
+}
+.letter-paper p { margin: 0; }
+.letter-paper .to { font-weight: 700; margin-block-end: 0.25em; } /* 縦書きなので block は右→左。見出しは本文のすぐ右 */
+.letter-paper .to.second { margin-block-start: 1.8em; color: #3a1610; } /* 前の宛先の本文とは一行ぶん空ける。上はお母さんへと揃える */
+.letter-paper .sign { margin-block-start: 1em; text-align: end; font-weight: 700; letter-spacing: 0.4em; }
+.letter-help { margin: 0; font-size: 0.8rem; letter-spacing: 0.2em; color: var(--washi-dim); }
+@keyframes letterIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@media (hover: none) { .letter-help { display: none; } }
 
 /* 花札錠 */
 #lock { display: grid; place-items: center; z-index: 6; background: rgba(5, 4, 3, 0.8); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
@@ -296,6 +328,8 @@ body.talk #msgText { text-shadow: 0 0 8px #000, 0 0 2px #000; }
 #stick { position: fixed; width: 96px; height: 96px; margin: -48px 0 0 -48px; border-radius: 50%; border: 1px solid rgba(232, 223, 203, 0.3); }
 #stick div { position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; margin: -20px; border-radius: 50%; background: rgba(232, 223, 203, 0.25); }
 #act { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(96px + env(safe-area-inset-bottom, 0px)); width: 72px; height: 72px; border-radius: 50%; border: 1px solid rgba(232, 223, 203, 0.5); background: rgba(11, 9, 8, 0.5); color: var(--washi); font: 600 0.85rem var(--font); letter-spacing: 0.1em; pointer-events: auto; }
+#fire { position: fixed; right: calc(max(16px, env(safe-area-inset-right, 0px)) + 88px); bottom: calc(96px + env(safe-area-inset-bottom, 0px)); width: 64px; height: 64px; border-radius: 50%; border: 1px solid rgba(255, 168, 88, 0.55); background: rgba(11, 9, 8, 0.5); color: #ffc890; font: 600 1rem var(--font); pointer-events: auto; }
+#kehaiDebug { position: fixed; left: 8px; top: 8px; z-index: 50; margin: 0; padding: 4px 8px; background: rgba(0, 0, 0, 0.6); color: #9f9; font: 12px/1.4 monospace; pointer-events: none; }
 
 /* 読み込み中は黒い画面だけ（失敗したときだけ一行出す） */
 #boot { display: grid; place-items: center; z-index: 10; background: var(--ink); color: var(--washi-dim); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }

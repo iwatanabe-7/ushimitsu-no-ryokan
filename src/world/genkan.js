@@ -103,7 +103,7 @@ export function buildGenkan(ctx) {
   }
 
   // 大提灯
-  const lan = chochin(8.0, 1.75, 4.6, { kanji: '宿', scale: 1.35 });
+  const lan = chochin(8.0, 1.75, 4.6, { scale: 1.35 });
   const lanternLamp = ctx.addLamp({ pos: new THREE.Vector3(8.0, 1.7, 4.6), color: 0xff8a40, base: 6.5, distance: 9, paper: lan.paper.material, paperBase: 1.7, kind: 'lantern', zone: 'genkan' });
   ctx.sway.push({ mesh: lan.group, seed: 5.1, lantern: true });
 

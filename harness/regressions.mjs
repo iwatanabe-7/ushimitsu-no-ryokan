@@ -6,8 +6,36 @@ export default async function (h) {
     results[name] = ok ? 'ok' : `NG ${detail ?? ''}`;
     if (!ok) throw new Error(`${name}: ${detail ?? ''}`);
   };
-  await h.start();
   const { page } = h;
+
+  // 0. 「はじめる」の二重クリックと導入文の連打で、行が飛んだり undefined が出たりしない
+  await page.click('#start', { clickCount: 2 });
+  const seen = [];
+  for (let i = 0; i < 40; i++) {
+    const t = await page.evaluate(() => document.getElementById('introLine')?.textContent || '');
+    if (t && seen[seen.length - 1] !== t) seen.push(t);
+    if ((await h.game((g) => g.phase())) !== 'intro') break;
+    await h.game((g) => g.act());
+    await h.game((g) => g.act()); // 切り替えの途中でもう一度押す
+    await h.wait(120);
+  }
+  check('導入文の連打で undefined が出ない', !seen.includes('undefined'), JSON.stringify(seen));
+  await h.until((g) => g.phase() === 'play', { timeout: 30000, label: '操作できるようになる' });
+  await h.close();
+
+  // 0b. 会話の最中に別の会話が来ても上書きせず、今の会話のあとに出す
+  const order = await h.game((g) => {
+    const got = [];
+    g.ui.say(['一つ目'], () => got.push('done1'));
+    g.ui.say(['二つ目'], () => got.push('done2'));
+    const first = document.getElementById('msgText')?.textContent;
+    // E の1回目は浮かび上がりを終わらせるだけなので、1行につき2回押す
+    g.act(); g.act(); // 一つ目を閉じる → 二つ目が出る
+    const second = document.getElementById('msgText')?.textContent;
+    g.act(); g.act();
+    return { first, second, got, talking: g.ui.talking };
+  });
+  check('会話を上書きしない', order.first === '一つ目' && order.second === '二つ目' && order.got.join() === 'done1,done2' && !order.talking, JSON.stringify(order));
 
   // 1. 設定のスライダーにフォーカスがあるときに Enter / Esc を押しても、記帳（エンディングB）にならない
   await page.focus('#setVolume');

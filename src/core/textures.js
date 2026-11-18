@@ -712,6 +712,27 @@ function irisScroll() {
 }
 
 // 部屋札（廊下側の小さな木札）
+// 帳場の札掛け。上に「今宵お迎えの順」、その下に一・二・三（左から）。札は板の下半分に掛ける
+export function fudakakeTexture() {
+  const W = 512, H = 320;
+  const [c, x] = makeCanvas(W, H);
+  x.drawImage(woodCanvas('#6a4a30', 57, 64, 256, 0.9), 0, 0, W, H);
+  x.strokeStyle = 'rgba(25,12,5,0.85)';
+  x.lineWidth = 10;
+  x.strokeRect(5, 5, W - 10, H - 10);
+  // 墨書きの紙
+  x.fillStyle = 'rgba(226,214,186,0.92)';
+  x.fillRect(40, 22, W - 80, 64);
+  x.fillStyle = 'rgba(20,10,5,0.92)';
+  x.textAlign = 'center';
+  x.textBaseline = 'middle';
+  x.font = `700 40px ${FONT}`;
+  x.fillText('今宵　お迎えの順', W / 2, 56);
+  x.font = `700 38px ${FONT}`;
+  ['一', '二', '三'].forEach((n, i) => x.fillText(n, W * (0.2 + i * 0.3), 118));
+  return toTexture(c);
+}
+
 export function namePlate(text) {
   const W = 128, H = 320;
   const [c, x] = makeCanvas(W, H);
@@ -767,12 +788,7 @@ export function genkanDoorTexture() {
   x.fillStyle = g;
   x.fillRect(0, 0, W, H);
   smoothNoise(x, W, H, 6, 0.3, 95, [40, 50, 70]);
-  // 外に立つ木の影
-  x.fillStyle = 'rgba(30,35,50,0.5)';
-  x.fillRect(180, 0, 18, H);
-  x.beginPath();
-  x.ellipse(150, 90, 90, 60, 0, 0, Math.PI * 2);
-  x.fill();
+  // 外の木の影は描かない：左右の戸が同じ絵なので、黒い楕円が2つ並んで不自然に見えた（2026-11-19 ユーザーの指示）
   x.fillStyle = '#24160c';
   x.fillRect(0, 0, W, 14);
   x.fillRect(0, H - 40, W, 40);

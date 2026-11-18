@@ -31,6 +31,11 @@ try {
     wait(4000),
   ]);
 } catch (_) { /* フォントが読めなくても代わりの明朝体で続ける */ }
+// 開発者向けの録画機能（宣伝動画用）。開発者モード（npm run dev で開き、URL に ?rec を付けたとき）だけ読み込む。
+// 普通に遊ぶとき（npm run dev だけ・公開版・Electron 版）は F9 もボタンも出ない（2026-11-19 ユーザーの指示）
+if (import.meta.env.DEV && new URLSearchParams(location.search).has('rec')) {
+  await import('./dev/recorder.js').catch(() => {});
+}
 try {
   await import('./main.js');
   boot.hidden = true;

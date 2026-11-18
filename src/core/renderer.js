@@ -28,16 +28,17 @@ export function createRenderer(canvas, quality = 'high') {
 
   let composer, bloom, film, q, qName;
   const filmShader = {
-    uniforms: { tDiffuse: { value: null }, time: { value: 0 }, fade: { value: 1 }, flash: { value: 0 } },
+    uniforms: { tDiffuse: { value: null }, time: { value: 0 }, fade: { value: 1 }, flash: { value: 0 }, vig: { value: 0 } },
     vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
     fragmentShader: `
-      uniform sampler2D tDiffuse; uniform float time; uniform float fade; uniform float flash; varying vec2 vUv;
+      uniform sampler2D tDiffuse; uniform float time; uniform float fade; uniform float flash; uniform float vig; varying vec2 vUv;
       float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }
       void main(){
         vec4 c = texture2D(tDiffuse, vUv);
         vec2 d = (vUv - 0.5) * vec2(1.0, 0.85);
         float v = smoothstep(0.78, 0.18, length(d));
         c.rgb *= mix(0.42, 1.0, v);
+        c.rgb *= 1.0 - vig * smoothstep(0.2, 0.75, length(d)); // 気配が高いと画面のふちが暗くなる
         float n = h(vUv * vec2(1920.0, 1080.0) + fract(time * 13.7) * 100.0);
         c.rgb += (n - 0.5) * (0.05 + flash * 0.25);
         c.rgb = mix(c.rgb, vec3(dot(c.rgb, vec3(0.299,0.587,0.114))), 0.18 + flash * 0.5);

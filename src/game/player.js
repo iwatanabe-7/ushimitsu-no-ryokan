@@ -148,7 +148,8 @@ export class Player {
       f /= len;
       s /= len;
     }
-    const speed = k.ShiftLeft || k.ShiftRight ? 2.3 : 1.7;
+    // speedMul：火のない暗がりでは手探りで遅くなる（手燭が設定する）
+    const speed = (k.ShiftLeft || k.ShiftRight ? 2.3 : 1.7) * (this.speedMul ?? 1);
     const sin = Math.sin(this.yaw), cos = Math.cos(this.yaw);
     const dx = (-sin * f + cos * s) * speed * dt;
     const dz = (-cos * f - sin * s) * speed * dt;

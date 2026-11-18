@@ -11,12 +11,14 @@ export class UI {
       reticle: $('reticle'), inv: $('inv'), ledger: $('ledger'), ledgerRows: $('ledgerRows'),
       ledgerActions: $('ledgerActions'), ledgerNameRow: $('ledgerNameRow'), ledgerName: $('ledgerName'),
       ledgerCaption: $('ledgerCaption'), lock: $('lock'), lockSlots: $('lockSlots'), pause: $('pause'),
-      end: $('end'), subtitle: $('subtitle'),
+      end: $('end'), subtitle: $('subtitle'), letter: $('letterView'), letterBody: $('letterBody'),
     };
     this.queue = [];
     this.done = null;
+    this.pending = []; // 会話の最中に来た次の会話（今の会話が終わってから出す）
     this.typing = null;
-    this.modal = null; // 'ledger' | 'lock' | null
+    this.modal = null; // 'ledger' | 'lock' | 'letter' | null
+    this.onItemClick = null; // 持ち物を押したとき（手紙を読み返す）
     this.el.msg.addEventListener('click', () => this.talking && this.next());
   }
 
@@ -26,6 +28,11 @@ export class UI {
 
   // 会話で動きが止まる場面は、導入のように上下に黒い帯を入れ、文字を一行ずつ浮かべる
   say(lines, done) {
+    // 会話の最中に別の会話が来たら、上書きせずに今の会話のあとに出す（演出の字幕は上書きしてよい）
+    if (this.talking && !this.el.msg.classList.contains('caption')) {
+      this.pending.push([lines, done]);
+      return;
+    }
     this.queue = [...lines];
     this.done = done || null;
     this.el.msg.hidden = false;
@@ -51,6 +58,8 @@ export class UI {
       const d = this.done;
       this.done = null;
       d && d();
+      // 待っていた会話があれば続けて出す（done の中で新しい会話が始まったら、そのあとに回す）
+      if (this.pending.length && !this.talking) this.say(...this.pending.shift());
       return;
     }
     const full = this.queue.shift();
@@ -107,6 +116,7 @@ export class UI {
     const label = document.createElement('span');
     label.textContent = name;
     el.append(c, label);
+    el.addEventListener('click', () => this.onItemClick?.(id));
     this.el.inv.append(el);
     requestAnimationFrame(() => el.classList.add('in'));
   }
@@ -163,6 +173,40 @@ export class UI {
   hideLedger() {
     this.el.ledger.hidden = true;
     this.modal = null;
+  }
+
+  // ---------------------------------------------------------- 娘の手紙
+  // paper = { parts: [{ to, lines }], sign }。文字は textContent で入れる（HTML を組み立てない）
+  showLetter(paper, { onClose } = {}) {
+    this.modal = 'letter';
+    const box = this.el.letterBody;
+    box.textContent = '';
+    paper.parts.forEach((part, i) => {
+      const to = document.createElement('p');
+      to.className = 'to' + (i ? ' second' : '');
+      to.textContent = part.to;
+      box.append(to);
+      for (const line of part.lines) {
+        const p = document.createElement('p');
+        p.textContent = line;
+        box.append(p);
+      }
+    });
+    const sign = document.createElement('p');
+    sign.className = 'sign';
+    sign.textContent = paper.sign;
+    box.append(sign);
+    box.scrollLeft = 0;
+    this._letter = { onClose };
+    this.el.letter.hidden = false;
+    $('letterClose').focus({ preventScroll: true });
+  }
+
+  closeLetter() {
+    if (this.modal !== 'letter') return;
+    this.el.letter.hidden = true;
+    this.modal = null;
+    this._letter?.onClose?.();
   }
 
   // ---------------------------------------------------------- 花札錠
@@ -275,6 +319,31 @@ export function drawKeyIcon(x) {
   x.fillRect(35, 74, 9, 5);
   x.fillStyle = '#6a1a14';
   x.fillRect(22, 8, 20, 3);
+}
+
+export function drawCandleIcon(x) {
+  // 皿と取っ手
+  x.fillStyle = '#8a6a34';
+  x.beginPath();
+  x.ellipse(32, 76, 22, 6, 0, 0, Math.PI * 2);
+  x.fill();
+  x.strokeStyle = '#8a6a34';
+  x.lineWidth = 3;
+  x.beginPath();
+  x.arc(56, 74, 5, 0, Math.PI * 2);
+  x.stroke();
+  // 蝋燭
+  x.fillStyle = '#e4d6b0';
+  x.fillRect(27, 34, 10, 40);
+  // 炎
+  x.fillStyle = '#ffb050';
+  x.beginPath();
+  x.ellipse(32, 24, 5, 10, 0, 0, Math.PI * 2);
+  x.fill();
+  x.fillStyle = '#fff0c0';
+  x.beginPath();
+  x.ellipse(32, 27, 2.2, 5, 0, 0, Math.PI * 2);
+  x.fill();
 }
 
 export function drawLetterIcon(x) {

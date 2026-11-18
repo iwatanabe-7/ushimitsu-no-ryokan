@@ -1,6 +1,7 @@
 const CREAK_ENABLED = false;
 
 // Web Audio で音をすべて合成する。ヘッドホン前提で、音源は 3D 定位させる。
+// 女将の声（読み上げ）は使わない（2026-11-19 ユーザーの指示）。台詞は字幕だけで出す
 export class InnAudio {
   constructor() {
     this.ctx = null;
@@ -110,11 +111,11 @@ export class InnAudio {
     bp.frequency.value = 380;
     bp.Q.value = 0.7;
     const g = ctx.createGain();
-    g.gain.value = 0.12;
+    g.gain.value = 0.05; // 2026-11-19 ザーザーがうるさいというユーザーの指示で 0.12 → 0.05
     const lfo = ctx.createOscillator();
     lfo.frequency.value = 0.07;
     const lfoGain = ctx.createGain();
-    lfoGain.gain.value = 0.09;
+    lfoGain.gain.value = 0.035; // 強まるときの幅も同じ割合で下げる（0.09 → 0.035）
     lfo.connect(lfoGain).connect(g.gain);
     const lfo2 = ctx.createOscillator();
     lfo2.frequency.value = 0.13;
@@ -131,7 +132,7 @@ export class InnAudio {
     lp.type = 'lowpass';
     lp.frequency.value = 120;
     const g2 = ctx.createGain();
-    g2.gain.value = 0.25;
+    g2.gain.value = 0.17; // 低いうなりも少し下げる（0.25 → 0.17）
     src2.connect(lp).connect(g2).connect(this.master);
     src2.start();
   }
@@ -158,9 +159,10 @@ export class InnAudio {
     return f;
   }
 
+  // 時計の秒の音。うるさいというユーザーの指示で 1/3 にした（2026-11-19：0.045 → 0.015、0.006 → 0.002）
   tick(pos, tock) {
-    this.burst(pos, { type: 'highpass', freq: tock ? 2600 : 3400, q: 0.8, dur: 0.03, gain: 0.045 });
-    this.tone(pos, tock ? 1650 : 1900, 0.025, 0.006);
+    this.burst(pos, { type: 'highpass', freq: tock ? 2600 : 3400, q: 0.8, dur: 0.03, gain: 0.015 });
+    this.tone(pos, tock ? 1650 : 1900, 0.025, 0.002);
   }
 
   tone(pos, freq, dur, gain, type = 'sine', when = 0) {
@@ -317,24 +319,18 @@ export class InnAudio {
   }
 
   // 灯が消える音
-  snuff(pos) {
-    this.burst(pos, { type: 'lowpass', freq: 500, q: 0.5, dur: 0.35, gain: 0.25, attack: 0.02 });
+  // 付け木を擦る音（手燭を点け始めたとき）
+  strike(pos) {
+    this.burst(pos, { type: 'highpass', freq: 2600, q: 0.7, dur: 0.14, gain: 0.22 });
+    this.burst(pos, { type: 'bandpass', freq: 1800, q: 0.9, dur: 0.1, gain: 0.12, when: 0.18 });
   }
 
-  // 女将の声。音声合成が使えない環境では字幕だけになる
-  voice(text) {
-    try {
-      const ss = window.speechSynthesis;
-      if (!ss) return;
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = 'ja-JP';
-      u.pitch = 0.55;
-      u.rate = 0.72;
-      u.volume = 0.55 * (this.volume ?? 1);
-      const v = ss.getVoices().find((vv) => vv.lang && vv.lang.startsWith('ja'));
-      if (v) u.voice = v;
-      else return;
-      ss.speak(u);
-    } catch (_) { /* 音声合成なし */ }
+  // 火が点いた「ぼっ」
+  ignite(pos) {
+    this.burst(pos, { type: 'lowpass', freq: 320, q: 0.8, dur: 0.2, gain: 0.3, attack: 0.01 });
+  }
+
+  snuff(pos) {
+    this.burst(pos, { type: 'lowpass', freq: 500, q: 0.5, dur: 0.35, gain: 0.25, attack: 0.02 });
   }
 }

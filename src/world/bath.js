@@ -119,7 +119,7 @@ export function buildBath(ctx) {
     steam.push(sp);
   }
   // 灯り
-  const lan = chochin(Rt.x0 + 0.5, 1.7, Rt.z1 - 0.5, { kanji: '湯' });
+  const lan = chochin(Rt.x0 + 0.5, 1.7, Rt.z1 - 0.5);
   const lanPost = box(0.06, 1.55, 0.06, M.dark, Rt.x0 + 0.5, 0.7, Rt.z1 - 0.5);
   lanPost.castShadow = true;
   ctx.addLamp({ pos: new THREE.Vector3(Rt.x0 + 0.5, 1.65, Rt.z1 - 0.5), color: 0xff8a40, base: 2.8, distance: 7, paper: lan.paper.material, paperBase: 1.6, kind: 'lantern', zone: 'roten' });

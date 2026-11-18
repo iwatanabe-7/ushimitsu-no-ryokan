@@ -1,7 +1,7 @@
 // 丑三つの旅館 — 宿の中（設計書の Inn シーン）。GameManager に相当する進行管理もここに置く
 import * as THREE from 'three';
 import { createRenderer, QUALITY } from './core/renderer.js';
-import { mergeStatic } from './core/merge.js';
+import { mergeStatic, mergeChildren } from './core/merge.js';
 import { InnAudio } from './core/audio.js';
 import { setRoot, initMaterials } from './world/kit.js';
 import { EYE, R, CORRIDOR } from './world/layout.js';
@@ -17,9 +17,11 @@ import { buildHiroma } from './world/hiroma.js';
 import { buildUpstairs } from './world/upstairs.js';
 import { buildOkami } from './world/okami.js';
 import { MSG, LABEL, ledgerEntries } from './game/messages.js';
-import { UI, drawCardIcon, drawKeyIcon, drawLetterIcon } from './game/ui.js';
+import { UI, drawCardIcon, drawKeyIcon, drawLetterIcon, drawCandleIcon } from './game/ui.js';
 import { Player } from './game/player.js';
 import { loadSave, writeSave } from './game/save.js';
+import { createCandle } from './game/candle.js';
+import { BALANCE } from './game/balance.js';
 
 const $ = (id) => document.getElementById(id);
 const save = loadSave();
@@ -35,9 +37,18 @@ const audio = new InnAudio();
 audio.volume = save.settings.volume;
 
 // ---------------------------------------------------------------- 状態（GameManager）
+const CARD_LABEL = { tsubaki: '椿', shobu: '菖蒲', kikyo: '桔梗' };
+function shuffle(a) {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
 const state = {
   phase: 'title', // title → intro → wake → play ⇄ scene → end
   lap2,
+  hasCandle: false, // 帳場の手燭を手に入れたか（最初は持っていない）
   hasKey: false, hasTsubaki: false, hasShobu: false, hasKikyo: false, hasLetter: false,
   oshiireOpen: false, oshiireAnim: 0,
   hiromaOpen: false, hiromaAnim: 0,
@@ -49,6 +60,12 @@ const state = {
   lanternsOut: false,
   gameStart: 0,
   paused: false,
+  // 花札錠の答え＝帳場の札掛けの順。遊ぶたびに変わる（タイトルに戻ると読み込み直すので、そのたびに決め直す）
+  lockOrder: shuffle(['tsubaki', 'shobu', 'kikyo']),
+  lockFails: 0,
+  poolGlared: 0, // 火を点けたまま湯の底を調べた回数
+  okamiAwake: true, // 女将が宿を歩いている（暗がりで手燭を点けていると気配が溜まる）。一周目の最初から（GDD 2.11）
+  caught: 0, // 女将に見つかった回数
   visited: {},
 };
 
@@ -138,10 +155,23 @@ ctx.hits.push(okamiHit);
 okamiShadow.position.set(5.2, 0, 3.28);
 okamiShadow.rotation.y = -Math.PI / 2;
 const OKAMI_SPOT = new THREE.Vector3(5.2, 1.0, 3.28);
+// 二周目、手紙のあとに一つだけ灯る提灯（もともと吊ってある x=6.6 のもの。影の主の東から照らし、
+// 帳場寄りの南の壁に影を伸ばす。桔梗の間から西へ歩くと、提灯の向こうの壁に影が見える）
+const LONE_LANTERN = W.corridor.lanterns[2];
 let okamiArrived = false;
 ctx.block.push({ c: [5.2, 3.28, 0.22 + R], when: () => okamiArrived });
+// 宿じゅうの暗がり（GDD 2.6）：渡り廊下・脱衣所・露天・階段・二階の灯りは、始めから消えている。
+// 中庭の石灯籠だけは残し、そのまわりだけを明るい場所にする
+// 湯の底の札は、露天に入るまで光らせない（脱衣所から火を点けたまま見ても光って見えないように）
+W.bath.card.material[2].emissiveIntensity = BALANCE.BathCardGlowLit;
+const DARK_ZONES = new Set(['watari', 'datsui', 'roten', 'stairs', 'f2', 'matsu', 'take']);
+for (const L of ctx.lamps) {
+  if (DARK_ZONES.has(L.zone)) L.level = 0;
+  if (L.zone === 'garden') L.litRadius = BALANCE.GardenLitRadius;
+}
 if (lap2) {
   W.kikyo.letter.visible = true;
+  W.kikyo.H.letter.userData.enabled = true;
   W.choba.setFigure(false);
 }
 
@@ -154,6 +184,7 @@ if (lap2) {
   add(S.door.left, S.door.right, S.mirror, S.shobuCard);
   add(K.door.left, K.door.right, K.card, K.letter, K.doll, ...K.slotCards);
   add(...Gk.panels, ...Gk.slots);
+  add(W.choba.teshoku);
   add(Wt.hiromaDoor.left, Wt.hiromaDoor.right, Wt.pond);
   add(B.door, B.card, ...B.leaves);
   add(W.hiroma.key);
@@ -162,7 +193,20 @@ if (lap2) {
   for (const src of ctx.tickSources) add(src.pendulum);
   const r = mergeStatic(scene, dyn);
   console.info(`静的な部品 ${r.before} 個を ${r.after} 個にまとめました`);
+  // 動く部品の中身もまとめる。女将たちは中の首や体を動かすので除く
+  const own = new Set([okami, okamiShadow, mirrorFigure]);
+  let mb = 0, ma = 0;
+  for (const o of dyn) {
+    if (own.has(o) || !o.children?.length) continue;
+    const c = mergeChildren(o, dyn); // 自分自身は見ない。中にある別の動く部品は触らない
+    mb += c.before;
+    ma += c.after;
+  }
+  console.info(`動く部品の中身 ${mb} 個を ${ma} 個にまとめました`);
 }
+// 女将の立つ位置を調べるときにレイを当てる壁（まとめた静的な部品と、襖・戸）
+const walls = scene.children.filter((o) => o.isMesh && !o.matrixAutoUpdate);
+for (const o of [W.tsubaki.door.left, W.tsubaki.door.right, W.shobu.door.left, W.shobu.door.right, W.kikyo.door.left, W.kikyo.door.right, W.watari.hiromaDoor.left, W.watari.hiromaDoor.right, W.bath.door, ...W.genkan.panels]) if (o) walls.push(o);
 
 // ---------------------------------------------------------------- UI と入力
 const ui = new UI();
@@ -178,6 +222,24 @@ player.onLockChange = (locked) => {
   }
   if (state.phase === 'play' && !ui.talking && !ui.modal && !player.isTouch) openPause();
 };
+// ---------------------------------------------------------------- 手燭と女将の影（docs/GDD.md 2章）
+const candle = createCandle({
+  scene, camera, player, state, ui, audio, okami, G, MSG, later, walls,
+  showOkami, releasePointer: () => releasePointer(),
+  turn: (dur) => (turnAnim = { t0: gclock, from: player.yaw, to: player.yaw + Math.PI, fromPitch: player.pitch, dur }),
+  clearTurn: () => (turnAnim = null),
+  clock: () => gclock,
+  handReady: () => state.gameStart > 0 && state.hasCandle,
+  sameZone: (x, z) => zoneAt(x, z) === zoneAt(player.pos.x, player.pos.z),
+  // 驚かせ2のあと、足音が止まった菖蒲の間の襖のまわりは溜まりやすい（女将はそこにいる）
+  kehaiMulAt: (p) => (state.lanternsOut && !lap2 && Math.hypot(p.x - W.shobu.doorPos.x, p.z - W.shobu.doorPos.z) < BALANCE.ShobuHotRadius ? BALANCE.ShobuHotMul : 1),
+});
+const URLQ = new URLSearchParams(location.search);
+const DARK_TEST = URLQ.get('dark') === '1'; // 驚かせ2のあとの暗い廊下から始める（手触りの確認用）
+// ?debug=kehai：画面の隅に気配などを出す（手触りの調整用）
+const debugEl = URLQ.get('debug') === 'kehai' ? document.body.appendChild(Object.assign(document.createElement('pre'), { id: 'kehaiDebug' })) : null;
+let debugAt = 0;
+let lastMoved = 0;
 function releasePointer() {
   if (document.pointerLockElement) {
     suppressPause = true;
@@ -191,6 +253,14 @@ window.addEventListener('keydown', (e) => {
     if (ui.modal === 'ledger' && state.phase === 'play') {
       if (e.code === 'Enter') writeName();
       if (e.code === 'Escape') cancelName();
+    }
+    return;
+  }
+  // 手紙の画面：「閉じる」ボタンにフォーカスがあっても、E・Space・Enter・Esc で閉じる
+  if (ui.modal === 'letter') {
+    if (['KeyE', 'Space', 'Enter', 'Escape'].includes(e.code)) {
+      e.preventDefault();
+      ui.closeLetter();
     }
     return;
   }
@@ -210,6 +280,14 @@ window.addEventListener('keydown', (e) => {
     if (e.code === 'Escape') closeLedger();
     return;
   }
+  if (e.code === 'KeyR' && state.hasLetter) {
+    ui.onItemClick?.('letter');
+    return;
+  }
+  if (e.code === 'KeyF') {
+    candle.toggle();
+    return;
+  }
   if (['KeyE', 'Space', 'Enter'].includes(e.code)) {
     e.preventDefault();
     act();
@@ -217,6 +295,7 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'Escape' && ui.talking) ui.next();
 });
 $('act').addEventListener('click', act);
+$('fire').addEventListener('click', () => candle.toggle());
 $('intro').addEventListener('click', act);
 if (player.isTouch) $('touch').hidden = false;
 
@@ -281,6 +360,8 @@ function act() {
   if (state.phase === 'intro') return skipIntro();
   if (ui.talking) return ui.next();
   if (state.phase !== 'play' || !focus || ui.modal) return;
+  // 暗がりで火がないと、読む物は読めない（鏡台は、驚かせのあとの引き出しの紙片だけ）
+  if (candle.tooDark(focus === 'mirror' && !state.mirrorSeen ? null : focus)) return say(MSG.tooDark);
   const T = W.tsubaki, S = W.shobu, K = W.kikyo, C = W.choba, Gk = W.genkan;
   switch (focus) {
     // 椿の間
@@ -323,6 +404,16 @@ function act() {
     // 帳場
     case 'ledger':
       return openLedger();
+    case 'teshoku':
+      W.choba.teshoku.visible = false;
+      W.choba.H.teshoku.userData.enabled = false;
+      return say(MSG.teshoku, () => {
+        give('candle', '手燭', drawCandleIcon, 'hasCandle');
+        candle.equip();
+        ui.subtitle(player.isTouch ? MSG.teshokuHintTouch : MSG.teshokuHint, 3600);
+      });
+    case 'fudakake':
+      return say(MSG.fudakake(state.lockOrder.map((k) => CARD_LABEL[k])));
     case 'chobaShoji':
       if (lap2 || state.ledgerSeen) return say(MSG.chobaShojiEmpty);
       return say(MSG.chobaShoji);
@@ -365,11 +456,10 @@ function act() {
           lanternScare();
         });
       }
-      if (lap2 && !state.hasLetter) {
-        K.letter.visible = false;
-        return say(MSG.letter, () => give('letter', '娘の手紙', drawLetterIcon, 'hasLetter'));
-      }
+      if (lap2 && !state.hasLetter) return takeLetter();
       return say(MSG.kikyoDeskEmpty);
+    case 'letter':
+      return takeLetter();
 
     // 玄関
     case 'lock':
@@ -400,6 +490,8 @@ function act() {
         audio.slide(W.bath.doorPos, 0.9, 0.35);
       });
     case 'bathCard':
+      // 火を点けていると、湯面に火が映って底が見えない。火を消すと、札が淡く光って見える（GDD 2.10）
+      if (candle.flameUp()) return say(state.poolGlared++ ? MSG.poolGlare2 : MSG.poolGlare);
       W.bath.card.visible = false;
       W.bath.H.bathCard.userData.enabled = false;
       audio.burst(W.bath.poolPos, { type: 'lowpass', freq: 700, q: 0.6, dur: 0.6, gain: 0.3, attack: 0.05 });
@@ -426,6 +518,8 @@ function openLedger() {
   });
 }
 function closeLedger() {
+  // エンディングBで見せる宿帳は演出なので、Esc などで閉じさせない
+  if (state.phase !== 'play') return;
   ui.hideLedger();
   player.lookEnabled = true;
   player.requestLock();
@@ -436,6 +530,13 @@ function closeLedger() {
   }
 }
 $('ledgerClose').addEventListener('click', closeLedger);
+$('letterClose').addEventListener('click', () => ui.closeLetter());
+// 持ち物の手紙を押すと読み返せる（暗がりで火がなければ読めない）
+ui.onItemClick = (id) => {
+  if (id !== 'letter' || state.phase !== 'play' || ui.talking || ui.modal || state.paused) return;
+  if (candle.tooDark('letter')) return say(MSG.tooDark);
+  openLetter(false);
+};
 $('ledgerSign').addEventListener('click', () => ui.ledgerAskName());
 $('ledgerWrite').addEventListener('click', writeName);
 $('ledgerCancel').addEventListener('click', cancelName);
@@ -449,16 +550,43 @@ function writeName() {
   endingB(name.slice(0, 8));
 }
 
+function takeLetter() {
+  if (state.hasLetter) return;
+  W.kikyo.letter.visible = false;
+  W.kikyo.H.letter.userData.enabled = false;
+  return say(MSG.letterFound, () => openLetter(true));
+}
+// 便箋の画面で手紙を読む。first は文机で初めて読むとき（閉じると手に入り、宿じゅうの火が消える）
+function openLetter(first) {
+  releasePointer();
+  player.lookEnabled = false;
+  ui.showLetter(MSG.letterPaper, { onClose: () => afterLetter(first) });
+}
+function afterLetter(first) {
+  player.lookEnabled = true;
+  player.requestLock();
+  if (!first) return;
+  say(MSG.letterGot, () => {
+    give('letter', '娘の手紙', drawLetterIcon, 'hasLetter');
+    // 読み終えると、宿じゅうの蝋燭と行灯の火が消え、手燭も消えて二度と点かない
+    for (const L of ctx.lamps) L.level = 0;
+    candle.douse(); // 火が消える音は鳴らさない（2026-11-19 ユーザーの指示）
+    // 「手燭の火が消えた」は、手燭を持っているときだけ出す
+    if (state.hasCandle) ui.subtitle(MSG.letterDouse, 3000);
+    later(() => ui.subtitle(MSG.letterReread, 3600), state.hasCandle ? 3400 : 400);
+  });
+}
+
 // ---------------------------------------------------------------- 花札錠（HanafudaLock）
-const ANSWER = ['kikyo', 'shobu', 'tsubaki'];
 function openLock() {
   // 最後の場面で使う影を、錠の画面を開いているあいだに用意しておく（切り替えの一瞬の引っかかりを隠す）
   W.genkan.scareSpot.castShadow = true;
   releasePointer();
   player.lookEnabled = false;
+  ui.subtitle(MSG.lockEngraving, 4200);
   ui.showLock(['tsubaki', 'shobu', 'kikyo'], {
     onTry(slots) {
-      if (slots.every((s, i) => s === ANSWER[i])) {
+      if (slots.every((s, i) => s === state.lockOrder[i])) {
         ui.hideLock();
         W.genkan.slots.forEach((m, i) => {
           m.material[2].map = cardTexture(slots[i]);
@@ -468,9 +596,10 @@ function openLock() {
         genkanScare();
         return true;
       }
-      // 間違えると札が戻り、柱時計が一度鳴る
+      // 間違えると札が戻り、柱時計が一度鳴る。間違えるたびに玄関の提灯が細り、廊下から足音が一歩ずつ近づく
+      // （総当たりで解くほど怖くなる。罰で進めなくなることはない）
       audio.bong(W.choba.pillarClockPos, 0.55);
-      ui.subtitle(MSG.lockWrong[0]);
+      lockPenalty(++state.lockFails);
       return false;
     },
     onClose() {
@@ -478,6 +607,17 @@ function openLock() {
       player.requestLock();
     },
   });
+}
+function lockPenalty(n) {
+  const Gk = W.genkan;
+  Gk.lanternLamp.level = Math.max(0.35, 1 - n * 0.16);
+  // 廊下の西から玄関へ。間違えるたびに近い位置で一歩
+  const k = Math.min(1, n / 5);
+  const at = new THREE.Vector3(lerp(1.0, 7.4, k), 0, lerp(2.7, 4.6, k));
+  later(() => audio.stepWood(at, 0.4 + k * 0.4), 700);
+  if (n >= 4) later(() => audio.breath(at.clone().setY(1.4), 0.12), 1500);
+  ui.subtitle(MSG.lockWrongN(n), 2800);
+  candle.addKehai(BALANCE.LockPenaltyKehai); // 明るさに関係なく女将が気づく。画面のあいだは見つからない
 }
 $('lockTry').addEventListener('click', () => ui.lockTry());
 $('lockBack').addEventListener('click', () => ui.lockClose());
@@ -507,8 +647,11 @@ function mirrorScare() {
   mirrorFigure.position.y = 0;
   mirrorFigure.rotation.y = player.yaw + Math.PI;
   mirrorFigureOn = true;
-  // 行灯がふっと燃え上がり、背後の壁が明るくなる（黒い人影が浮かぶ）
+  // 行灯がふっと燃え上がり、背後の壁が明るくなる（黒い人影が浮かぶ）。
+  // 1秒だけ影の灯りを行灯に渡し、手燭は影なしの灯りに回す
   W.shobu.andonLamp.level = 2.4;
+  forcedLamp = W.shobu.andonLamp;
+  later(() => forcedLamp === W.shobu.andonLamp && (forcedLamp = null), BALANCE.MirrorForcedLampTime * 1000);
   // 同じ場所に影も落ちる
   okami.position.copy(mirrorFigure.position);
   okami.rotation.y = mirrorFigure.rotation.y;
@@ -521,7 +664,7 @@ function mirrorScare() {
     showOkami(false);
     later(() => {
       W.shobu.H.mirror.userData.enabled = true;
-      say(MSG.mirrorAfter);
+      say(MSG.mirrorAfter, () => ui.subtitle(MSG.mirrorBreath, 3000));
     }, 500);
   }, 500);
 }
@@ -556,10 +699,14 @@ function lanternScare() {
   later(() => ui.caption(MSG.walkerFar), 4600);
   later(() => ui.caption(MSG.walkerNear), end - 4200);
   later(() => ui.caption(MSG.walkerIn), end + 1400);
+  later(() => ui.caption(MSG.lanternLeft), end + 2800);
   later(() => {
     ui.cinema(false);
     state.phase = 'play';
     state.lanternsOut = true;
+    state.okamiAwake = true;
+    // 女将はもうこちらに気づいている。気配 40（段階1）から。桔梗の間は明るいので、廊下に出るまで引かずに待つ
+    candle.setKehai(BALANCE.LanternScareKehai, true);
     player.requestLock();
   }, end + 4200);
 }
@@ -595,6 +742,8 @@ function genkanScare() {
   ui.cinema(true);
   const Gk = W.genkan;
   audio.unlock(Gk.lockPos);
+  // 手燭は細り、影を落とさない（背後に伸びる影は、廊下側の灯りが落とす）
+  candle.setScene(BALANCE.GenkanCandleDim, true);
   // 一歩下がって、錠の脇の壁を見る
   later(() => {
     const to = new THREE.Vector3(9.2, 0, 6.15);
@@ -625,7 +774,6 @@ function genkanScare() {
     audio.creak(okami.position.clone().setY(0.2), 0.2, 0.6);
   }, 2100);
   later(() => {
-    audio.voice(MSG.okamiVoice);
     ui.subtitle(`「${MSG.okamiVoice}」`, 2400);
     audio.breath(okami.position.clone().setY(1.4), 0.2);
   }, 4200);
@@ -637,6 +785,7 @@ function genkanScare() {
     showOkami(false);
     scareRamp = { t0: gclock, from: W.genkan.scareSpot.intensity, to: 0, dur: 0.4 };
   }, 6300);
+  // 最後に手燭を吹き消す動作は入れない（2026-11-19 ユーザーの指示）。細った火のまま暗転する
   later(() => {
     G.film.uniforms.fade.value = 1;
     audio.drone(4, 0.12);
@@ -700,7 +849,6 @@ function endingB(name) {
   fadeOut(1.6, () => {
     ui.subtitle(MSG.endB[0], 2200);
     later(() => {
-      audio.voice('ようこそ、おいでくださいました');
       ui.subtitle(MSG.endB[1], 3000);
     }, 2300);
     later(() => {
@@ -841,6 +989,8 @@ $('setFull').addEventListener('click', toggleFullscreen);
 renderSeen($('titleSeen'));
 if (lap2) $('lapLabel').hidden = false;
 function startGame() {
+  if (state.phase !== 'title') return; // 二重クリックで導入を二度流さない
+  $('start').disabled = true;
   audio.start();
   audio.setVolume(save.settings.volume);
   $('title').classList.add('out');
@@ -850,18 +1000,22 @@ function startGame() {
 }
 const introLines = lap2 ? MSG.introLap2 : MSG.intro;
 let introTimer = null;
+let introFade = null;
 let introIdx = 0;
 function playIntro() {
   $('intro').hidden = false;
   showIntroLine();
 }
 function showIntroLine() {
+  // 連打したとき、前の行の切り替え待ちが残っていると行が飛んだり undefined が出たりするので両方止める
   clearTimeout(introTimer);
+  clearTimeout(introFade);
   if (introIdx >= introLines.length) return finishIntro();
   const el = $('introLine');
   el.classList.remove('in');
-  setTimeout(() => {
-    el.textContent = introLines[introIdx++];
+  const line = introLines[introIdx++];
+  introFade = setTimeout(() => {
+    el.textContent = line;
     el.classList.add('in');
     introTimer = setTimeout(showIntroLine, 3600);
   }, 450);
@@ -894,7 +1048,27 @@ function wake(t0) {
     player.lookEnabled = true;
     $('reticle').hidden = false;
     say(MSG.wake);
+    candle.setSafeHere();
+    if (DARK_TEST) darkTest();
     player.requestLock();
+  }
+}
+// 手燭を手に入れた状態にする（?dark=1 とハーネス用）
+function giveCandle() {
+  if (state.hasCandle) return;
+  W.choba.teshoku.visible = false;
+  W.choba.H.teshoku.userData.enabled = false;
+  give('candle', '手燭', drawCandleIcon, 'hasCandle');
+  candle.equip();
+}
+// ?dark=1：驚かせ2のあとと同じ暗い廊下にして、椿の間から出られるようにする（桔梗の札以外の持ち物はそのまま）
+function darkTest() {
+  Object.assign(state, { hasKey: true, doorOpen: true, doorAnim: 1, lanternsOut: true, okamiAwake: true });
+  giveCandle();
+  W.tsubaki.H.door.userData.enabled = false;
+  for (const l of W.corridor.lanterns) {
+    l.lamp.level = 0;
+    l.paper.material.emissiveIntensity = 0;
   }
 }
 $('start').addEventListener('click', startGame);
@@ -962,7 +1136,8 @@ function frame() {
   // 一時停止中はゲーム内時間を進めない。タブが裏にあって間が空いても、一度に進めるのは 0.25 秒まで
   // （とても重い端末でも演出が止まらないよう、長いフレームは捨てずに切り詰める）
   const rawDt = t - prev;
-  runTimers(state.paused ? 0 : Math.min(rawDt, 0.25));
+  const gameDt = state.paused ? 0 : Math.min(rawDt, 0.25);
+  runTimers(gameDt);
   prev = t;
   G.film.uniforms.time.value = t;
   G.film.uniforms.flash.value = t < flashUntil ? 1 : Math.max(0, G.film.uniforms.flash.value - dt * 3);
@@ -990,18 +1165,39 @@ function frame() {
     }
   }
   // 二周目：影の主がいるあいだ、近くの廊下の提灯が影を落とす
+  // 影の灯りの受け持ち：演出 ＞ 二周目の演出 ＞ 手燭（点いているとき）＞ いちばん近い灯り
+  let special = false;
   if (okamiArrived && !forcedLamp && player.pos.distanceTo(OKAMI_SPOT) < 4.5) {
-    const lan = W.corridor.lanterns[2].lamp;
-    if (lan.vis > 0.3 && lan.level > 0.1) best = lan;
+    const lan = LONE_LANTERN.lamp;
+    if (lan.vis > 0.3 && lan.level > 0.1) {
+      best = lan;
+      special = true;
+    }
   }
-  if (forcedLamp && forcedLamp.vis > 0.3) best = forcedLamp;
+  if (forcedLamp && forcedLamp.vis > 0.3) {
+    best = forcedLamp;
+    special = true;
+  }
   shadowLamp = best;
+  const candleOwns = !special && candle.wantsShadow();
+  // 手燭が影を受け持つときは、いちばん近い灯りも影なしの光源に回す（実光源の数は増やさない）
+  const shadowExcl = candleOwns ? null : best;
+  let darkScore = 0; // 手燭以外の灯りの強さの最大（暗がりの判定）
+  let zoneLit = false; // 今いる区画に、点いた灯りがあるか
+  for (const L of ctx.lamps) {
+    if (L.zone !== zone || L.level <= 0.1 || L.base <= 0.5) continue;
+    // 石灯籠のように、まわりだけを照らす灯り
+    if (L.litRadius && Math.hypot(L.pos.x - player.pos.x, L.pos.z - player.pos.z) > L.litRadius) continue;
+    zoneLit = true;
+  }
   // 影を落とす灯り以外を、明るく近い順に光源へ割り当てる
   // 上位 pool.length 個だけを挿入ソートで選ぶ（毎フレーム配列を作らない）
   let nRank = 0;
   for (const L of ctx.lamps) {
-    if (L === best || L.now <= 0.02) continue;
+    if (L.now <= 0.02) continue;
     const sc = L.now / Math.max(1, L.pos.distanceToSquared(player.pos));
+    if (sc > darkScore) darkScore = sc;
+    if (L === shadowExcl) continue;
     let j = Math.min(nRank, pool.length);
     if (j === pool.length && sc <= rankScore[j - 1]) continue;
     if (j === pool.length) j--;
@@ -1026,15 +1222,27 @@ function frame() {
     light.intensity = L.now;
     light.distance = L.distance ?? 6;
   }
+  // 手燭が影を受け持たないとき（演出の灯りに渡したとき）は、影なしの光源のいちばん弱い枠で照らす
+  if (!candleOwns && candle.wantsLight()) {
+    const i = Math.min(nRank, G.quality.lights - 1);
+    if (i >= 0) candle.setLight(pool[i], t);
+  }
   let animating = false;
   for (const k of ANIM_KEYS) if (state[k] > 0 && state[k] < 1) animating = true;
   okami.visible = okami.position.y > OKAMI_PARKED_Y;
-  if (best !== lastShadowLamp || animating || okami.visible) {
+  if (candleOwns) {
+    // 手燭は動くので、影の描き直しは手燭の中で間引く
+    if (lastShadowLamp !== 'candle') candle.releaseShadow();
+    lastShadowLamp = 'candle';
+    candle.driveShadowLight(shadowLight, t, save.settings.quality);
+  } else if (best !== lastShadowLamp || animating || okami.visible) {
     shadowLight.shadow.needsUpdate = true;
     lastShadowLamp = best;
     lastShadowAt = t;
   }
-  if (best) {
+  if (candleOwns) {
+    /* 手燭が設定済み */
+  } else if (best) {
     shadowLight.position.copy(best.pos);
     shadowLight.color.setHex(best.color);
     shadowLight.intensity = best.now;
@@ -1069,6 +1277,7 @@ function frame() {
   W.watari.hiromaDoor.open(anim('hiromaOpen', 'hiromaAnim', 1.0));
   W.bath.open(anim('yudonoOpen', 'yudonoAnim', 0.9));
   W.bath.update(t, vis.has('roten') || vis.has('datsui'));
+  if (zone === 'roten') W.bath.card.material[2].emissiveIntensity = candle.groping() ? BALANCE.BathCardGlowDark : BALANCE.BathCardGlowLit;
   // 屋外は見えているときだけ月明かりと池の映り込みを描く
   const outside = G.quality.moonShadows ? vis.has('garden') || vis.has('watari') || vis.has('roten') : zone === 'garden' || zone === 'roten';
   W.watari.moon.intensity = outside ? 150 : 0;
@@ -1097,9 +1306,10 @@ function frame() {
   }
   if (state.gameStart && !gt.stopped) {
     const half = Math.floor(played * 2);
+    // 時計の秒の音は、最初の部屋（椿の間）にいるときだけ鳴らす（2026-11-19 ユーザーの指示）
     if (half !== lastTick) {
       lastTick = half;
-      for (const src of ctx.tickSources) {
+      if (zone === 'tsubaki') for (const src of ctx.tickSources) {
         if (src.kind === 'small') audio.tick(src.pos, half % 2);
         else if (half % 2 === 0) audio.burst(src.pos, { type: 'bandpass', freq: 1400, q: 3, dur: 0.05, gain: 0.05 });
       }
@@ -1133,16 +1343,14 @@ function frame() {
       audio.creak(OKAMI_SPOT, 0.25, 1.0);
       // 宿じゅうの明かりが消え、影の主の向こう（帳場寄りの奥）に提灯がひとつだけ灯る。
       // 桔梗の間から出てくると、手前の壁に女将の横顔の影が落ち、その奥で提灯が灯っている
-      const lan = W.corridor.lanterns[2];
+      // 灯るのは、もともと吊ってある廊下の提灯のひとつ。動かさずに、その場で灯す
+      const lan = LONE_LANTERN;
       for (const L of ctx.lamps) L.level = 0;
-      lan.group.position.set(3.3, 1.65, 2.25);
-      lan.lamp.pos.set(3.3, 1.58, 2.25);
-      lan.lamp.level = 2.7;
-      lan.lamp.paperBase = 1.3;
-      lan.lamp.distance = 9;
+      lan.lamp.level = BALANCE.LoneLanternLevel;
+      lan.lamp.paperBase = BALANCE.LoneLanternPaper;
+      lan.lamp.distance = BALANCE.LoneLanternDistance;
       hemi.intensity = 0.18;
       W.choba.shoji.material.emissiveIntensity = 0;
-      audio.snuff(player.pos.clone());
       audio.drone(4, 0.08);
       later(() => ui.subtitle('……どこかで、提灯がひとつ灯った。', 3200), 900);
     }
@@ -1158,9 +1366,11 @@ function frame() {
   if (state.phase === 'play' || state.phase === 'scene') {
     if (state.phase === 'play' && !state.paused && !ui.talking && !ui.modal) {
       const moved = player.update(dt, gate);
+      lastMoved = moved;
       footsteps(moved, zone, dt);
       zoneEvents(zone);
     }
+    // 文章が出ていても動かす（逃げる途中で止まると不自然）。一時停止中は止める
     if (camAnim) {
       const k = ease(Math.min(1, (gclock - camAnim.t0) / camAnim.dur));
       player.pos.lerpVectors(camAnim.from, camAnim.to, k);
@@ -1181,6 +1391,13 @@ function frame() {
     const bob = 0;
     camera.position.set(player.pos.x, EYE + player.floorY + bob, player.pos.z);
     camera.rotation.set(player.pitch, player.yaw, 0);
+  }
+  candle.update(gameDt, { darkScore: zoneLit ? Infinity : darkScore, moved: state.phase === 'play' ? lastMoved : 0, t });
+  lastMoved = 0;
+  if (debugEl && t - debugAt > 0.1) {
+    debugAt = t;
+    const a = candle.api;
+    debugEl.textContent = `気配 ${a.kehai().toFixed(1)}  段階 ${a.stage()}  暗がり ${a.dark() ? '暗' : '明'}  火 ${a.lit() ? '点' : '消'}  見つかった ${a.caught()}  明るさ ${darkScore.toFixed(2)}  影 ${a.shadowUpdates()}`;
   }
 
   // ときどき、どこかで襖がきしむ
@@ -1262,6 +1479,7 @@ $('start').textContent = 'はじめる';
 // 動作確認用のフック
 // game-studio のハーネス用の入口（CLAUDE.md の約束）
 window.__game = {
+  candle: { ...candle.api, give: () => giveCandle() },
   state,
   ui,
   phase: () => state.phase,

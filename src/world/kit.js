@@ -7,7 +7,18 @@ export function setRoot(scene) {
   root = scene;
 }
 
-export const std = (o) => new THREE.MeshStandardMaterial(o);
+// 同じ設定の材質は使い回す（材質が違うと、静的な部品をまとめても別々に描くことになり重くなる）。
+// 使い回すのはテクスチャのない材質だけ。テクスチャのある材質（提灯の紙など）は灯りに合わせて
+// 一つずつ明るさを変えるので、毎回作る。使い回した材質は、あとから書き換えないこと
+const TEX_KEYS = ['map', 'emissiveMap', 'normalMap', 'roughnessMap', 'metalnessMap', 'bumpMap', 'alphaMap', 'aoMap', 'lightMap', 'envMap', 'displacementMap'];
+const stdCache = new Map();
+export const std = (o = {}) => {
+  if (TEX_KEYS.some((k) => o[k])) return new THREE.MeshStandardMaterial(o);
+  const key = JSON.stringify(o);
+  let m = stdCache.get(key);
+  if (!m) stdCache.set(key, (m = new THREE.MeshStandardMaterial(o)));
+  return m;
+};
 
 // 壁の材質は大きさを丸めて使い回す（同じ材質の壁はまとめて一度に描ける）
 const wallCache = new Map();
@@ -100,12 +111,8 @@ export function fusumaPanel(tex, w = 0.9, h = 1.76, pullSide = 1) {
   for (const [fw, fh, fx, fy] of [[w, f, 0, h / 2 - f / 2], [w, f, 0, -h / 2 + f / 2], [f, h, -w / 2 + f / 2, 0], [f, h, w / 2 - f / 2, 0]]) {
     box(fw, fh, 0.026, M.lacquer, fx, fy, 0, { parent: g });
   }
-  for (const side of [1, -1]) {
-    const hk = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.03, 20), M.pull);
-    hk.rotation.x = Math.PI / 2;
-    hk.position.set(pullSide * (w / 2 - 0.09), -0.05, 0.004 * side);
-    g.add(hk);
-  }
+  // 引手（丸い金具）は付けない：暗い部屋では黒い楕円が2つ並んだ影に見えて不自然だった（2026-11-19 ユーザーの指示）
+  void pullSide;
   return g;
 }
 

@@ -105,7 +105,10 @@ export function buildKikyo(ctx) {
     kimono: hitBox(hits, 'kimono', 1.6, 1.6, 0.25, 7.45, 0.9, K.z0 + 0.45, 0.25),
     temari: hitBox(hits, 'temari', 0.2, 0.2, 0.2, 8.2, 0.08, 0.75),
     doll: hitBox(hits, 'doll', 0.25, 0.4, 0.25, 10.0, 0.18, 1.45),
+    // 二周目の手紙。机より少し上に出しておき、机ではなく手紙に照準が合うようにする
+    letter: hitBox(hits, 'letter', 0.18, 0.1, 0.26, DX - 0.25, 0.48, DZ - 0.02),
   };
+  H.letter.userData.enabled = false;
 
   ctx.walk.push({ r: [K.x0 + R, K.x1 - R, K.z0 + R, K.z1 - R] });
   ctx.walk.push({ r: [door.gapX[0] + R, door.gapX[1] - R, 1.4, 2.3], when: () => ctx.state.kikyoAnim > 0.85 });
